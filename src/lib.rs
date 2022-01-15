@@ -1,3 +1,8 @@
+#![feature(test)]
+extern crate test;
+
+mod utils;
+
 #[cfg(test)]
 mod tests {
     #[test]
