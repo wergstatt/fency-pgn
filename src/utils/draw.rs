@@ -9,17 +9,17 @@ use test::Bencher;
 const SAN_REGEX: &str = "(?P<Piece>[NBRQK])?(?P<RemainderFile>[a-h])?(?P<RemainderRank>[1-8])?(?P<Hit>x)?(?P<Target>[a-h][1-8])=?(?P<PromotesTo>[NBRQK])?(?P<Check>\\+|#)?";
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-struct Draw {
+pub struct Draw {
     san: String,
-    target: Coord,
-    piece: Piece,
+    pub target: Coord,
+    pub piece: Piece,
     is_check: bool,
     is_checkmate: bool,
-    is_promo: bool,
-    is_hit: bool,
-    promoted_piece: Option<Piece>,
-    remainder_file: Option<char>,
-    remainder_rank: Option<char>,
+    pub is_promo: bool,
+    pub is_hit: bool,
+    pub promoted_piece: Option<Piece>,
+    pub remainder_file: Option<char>,
+    pub remainder_rank: Option<char>,
 }
 
 impl From<String> for Draw {
@@ -66,7 +66,6 @@ impl From<String> for Draw {
 
 #[test]
 fn check_draw_from_san_pt1() {
-    let re_san = Regex::new(SAN_REGEX).unwrap();
     let draw = Draw::from("a3".to_owned());
 
     assert_eq!(draw.target, Coord::from("a3"));
@@ -82,7 +81,6 @@ fn check_draw_from_san_pt1() {
 
 #[test]
 fn check_draw_from_san_pt2() {
-    let re_san = Regex::new(SAN_REGEX).unwrap();
     let draw = Draw::from("exd1=Q#".to_owned());
 
     assert_eq!(draw.target, Coord::from("d1"));
@@ -98,7 +96,6 @@ fn check_draw_from_san_pt2() {
 
 #[test]
 fn check_draw_from_san_pt3() {
-    let re_san = Regex::new(SAN_REGEX).unwrap();
     let draw = Draw::from("Raxc6+".to_owned());
 
     assert_eq!(draw.target, Coord::from("c6"));
@@ -114,7 +111,6 @@ fn check_draw_from_san_pt3() {
 
 #[test]
 fn check_draw_from_san_pt4() {
-    let re_san = Regex::new(SAN_REGEX).unwrap();
     let draw = Draw::from("N1c3".to_owned());
 
     assert_eq!(draw.target, Coord::from("c3"));
@@ -129,8 +125,8 @@ fn check_draw_from_san_pt4() {
 }
 
 #[bench]
+/// https://lichess.org/ML6mBOpY
 fn bench_san_to_draw_conversion(b: &mut Bencher) {
-    /// https://lichess.org/ML6mBOpY
     b.iter(|| {
         Vec::from([
             "d4", "d5", "e3", "c5", "c3", "Nc6", "h3", "Nf6", "Nf3", "e6", "Be2", "c4", "a3",
