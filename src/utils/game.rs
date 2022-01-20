@@ -563,11 +563,11 @@ fn get_pawn_hits(fig: &Figure, game: &Game) -> CoordIdx {
             if game.position[ti as usize].unwrap().color != fig.color {
                 coordix.push(ti);
             }
-
-            // If the possible target is the en-passant square, add it.
-            if !game.en_passant.is_none() && (game.en_passant.unwrap().idx == ti) {
-                coordix.push(ti);
-            }
+        } else if valid_idx(ti)
+            && !game.en_passant.is_none()
+            && (game.en_passant.unwrap().idx == ti)
+        {
+            coordix.push(ti);
         }
     }
 
@@ -1261,5 +1261,29 @@ fn check_playing_games_pt9() {
     assert_eq!(
         game.to_fen(),
         "8/6k1/7p/2Q2pn1/3Pq3/6PK/5P1P/8 w - - 7 42".to_string()
+    )
+}
+
+#[test]
+/// https://lichess.org/kz3z6c79
+fn check_playing_games_pt10() {
+    let mut game = Game::new();
+    let mvs = [
+        "d4", "Nf6", "c4", "e6", "Nc3", "b6", "e4", "Bb4", "e5", "Ng8", "Nf3", "Ne7", "Bg5", "h6",
+        "Bh4", "Bb7", "a3", "Bxc3+", "bxc3", "g5", "Bg3", "Nf5", "Bd3", "Nxg3", "hxg3", "Na6",
+        "Bc2", "Qe7", "Qd2", "O-O-O", "a4", "c5", "O-O", "Nc7", "a5", "b5", "cxb5", "Nxb5", "c4",
+        "Nc7", "a6", "Bc6", "Ba4", "Be4", "Qa5", "Na8", "dxc5", "h5", "Nd4", "h4", "Nb5", "d5",
+        "cxd6", "Qd7", "Nd4", "Qc7", "dxc7", "Rxd4", "gxh4", "Rxh4", "Rac1", "Nxc7", "Qc5", "Ba8",
+        "Qxa7", "Rh8", "Qxd4",
+    ]
+    .map(|mv| mv.to_string());
+
+    for mv in mvs {
+        game = game.play_move(mv);
+    }
+
+    assert_eq!(
+        game.to_fen(),
+        "b1k4r/2n2p2/P3p3/4P1p1/B1PQ4/8/5PP1/2R2RK1 b - - 0 34".to_string()
     )
 }
