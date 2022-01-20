@@ -112,21 +112,27 @@ impl Game {
                     && (moving_figure.piece == Piece::P)
                     && (draw.target == self.en_passant.unwrap())
                 {
-                    figures.remove(
-                        &figures
-                            .clone()
-                            .into_iter()
-                            .find(|f| f.coord.idx == (draw.target.idx - f.color.factor() * 8))
-                            .unwrap(),
-                    );
+                    let ep_figure = figures
+                        .clone()
+                        .into_iter()
+                        .find(|f| {
+                            (f.color == self.color.next())
+                                && (f.coord.x == draw.target.x)
+                                && (f.coord.y == draw.target.y + self.color.next().factor())
+                        })
+                        .unwrap();
+
+                    position[ep_figure.coord.idx as usize] = None;
+                    figures.remove(&ep_figure);
                 } else {
-                    figures.remove(
-                        &figures
-                            .clone()
-                            .into_iter()
-                            .find(|f| f.coord == draw.target)
-                            .unwrap(),
-                    );
+                    let hit_figure = figures
+                        .clone()
+                        .into_iter()
+                        .find(|f| f.coord == draw.target)
+                        .unwrap();
+
+                    position[hit_figure.coord.idx as usize] = None;
+                    figures.remove(&hit_figure);
                 }
             }
             if draw.is_promo {
@@ -1157,7 +1163,7 @@ fn check_playing_games_pt5() {
     .map(|mv| mv.to_string());
 
     for mv in mvs {
-        game = game.play_move(mv.clone());
+        game = game.play_move(mv);
     }
 
     assert_eq!(
@@ -1209,5 +1215,51 @@ fn check_playing_games_pt7() {
     assert_eq!(
         game.to_fen(),
         "2R3k1/5prp/p7/1p4q1/3Q1p2/P4PP1/1P5P/6K1 b - - 1 31".to_string()
+    )
+}
+
+#[test]
+/// https://lichess.org/tGpzk7yJ
+fn check_playing_games_pt8() {
+    let mut game = Game::new();
+    let mvs = [
+        "e4", "e5", "f4", "exf4", "Nf3", "Nf6", "e5", "Nh5", "Bc4", "g5", "h4", "Ng3", "Nxg5",
+        "Nxh1", "Bxf7+", "Ke7", "Nc3", "c6", "d4", "h6", "Qh5", "Bg7", "Nge4", "Qf8", "Nd6", "Na6",
+        "Bxf4", "Nb4", "Kd2", "Nf2", "Rf1", "Rh7", "Rxf2", "Bh8", "Bg5+", "hxg5", "Qxg5+",
+    ]
+    .map(|mv| mv.to_string());
+
+    for mv in mvs {
+        game = game.play_move(mv);
+    }
+
+    assert_eq!(
+        game.to_fen(),
+        "r1b2q1b/pp1pkB1r/2pN4/4P1Q1/1n1P3P/2N5/PPPK1RP1/8 b - - 0 19".to_string()
+    )
+}
+
+#[test]
+/// https://lichess.org/j3sNSaKS
+fn check_playing_games_pt9() {
+    let mut game = Game::new();
+    let mvs = [
+        "e4", "e6", "d4", "d5", "Nc3", "Bb4", "e5", "Bxc3+", "bxc3", "b6", "Nf3", "Bb7", "Bd3",
+        "Nc6", "O-O", "Nge7", "Ba3", "f5", "exf6", "gxf6", "Re1", "Qd7", "Qe2", "Nd8", "Bxe7",
+        "Qxe7", "a4", "Bc6", "a5", "Kf7", "axb6", "axb6", "Rxa8", "Bxa8", "Nd2", "Kf8", "c4",
+        "Rg8", "cxd5", "Bxd5", "Be4", "Bxe4", "Qxe4", "f5", "Qe5", "Qg5", "g3", "Qxd2", "Qf6+",
+        "Nf7", "Rxe6", "Qxc2", "Re7", "Qc1+", "Kg2", "Rg7", "Rd7", "Kg8", "Qe7", "Qc6+", "Kg1",
+        "h6", "Rxc7", "Qd6", "Qe8+", "Qf8", "Qd7", "Ng5", "Qd5+", "Kh7", "Rxg7+", "Kxg7", "Qb7+",
+        "Qf7", "Qxb6", "Qe6", "Qc5", "Nf3+", "Kg2", "Qe4", "Kh3", "Ng5#",
+    ]
+    .map(|mv| mv.to_string());
+
+    for mv in mvs {
+        game = game.play_move(mv);
+    }
+
+    assert_eq!(
+        game.to_fen(),
+        "8/6k1/7p/2Q2pn1/3Pq3/6PK/5P1P/8 w - - 7 42".to_string()
     )
 }
