@@ -1,9 +1,7 @@
-use crate::utils::color::Color;
 use crate::utils::coord::Coord;
 use crate::utils::piece::Piece;
 use regex::Regex;
 use std::collections::HashMap;
-use test::Bencher;
 
 // A regular expression to decompose a SAN. Note that castling is excluded here.
 const SAN_REGEX: &str = "(?P<Piece>[NBRQK])?(?P<RemainderFile>[a-h])?(?P<RemainderRank>[1-8])?(?P<Hit>x)?(?P<Target>[a-h][1-8])=?(?P<PromotesTo>[NBRQK])?(?P<Check>\\+|#)?";
@@ -122,34 +120,4 @@ fn check_draw_from_san_pt4() {
     assert_eq!(draw.promoted_piece, None);
     assert_eq!(draw.remainder_file, None);
     assert_eq!(draw.remainder_rank, Some('1'));
-}
-
-#[bench]
-/// https://lichess.org/ML6mBOpY
-fn bench_san_to_draw_conversion(b: &mut Bencher) {
-    b.iter(|| {
-        Vec::from([
-            "d4", "d5", "e3", "c5", "c3", "Nc6", "h3", "Nf6", "Nf3", "e6", "Be2", "c4", "a3",
-            "Bd6", "b4", "Bd7", "Bb2", "a6", "O-O", "O-O", "Nbd2", "h6", "Qe1", "Nh7", "Nh2", "f5",
-            "f4", "b5", "Nhf3", "Qf6", "Kh2", "Kh8", "Rg1", "g5", "Ne5", "Bxe5", "dxe5", "Qg6",
-            "g3", "Kg7", "Nf3", "Kf7", "Nd4", "Ke7", "Nxc6+", "Bxc6", "Bf3", "h5", "h4", "g4",
-            "Bg2", "Rf7", "Rf1", "Nf8", "Rf2", "Nd7", "Rd2", "Nb6", "Qd1", "Rd8", "Rd4", "Kf8",
-            "Bf1", "Rfd7", "Be2", "Na4", "Qc2", "Kg7", "Bc1", "Qf7", "Bd1", "Nb6", "Qd2", "Qe7",
-            "Bb2", "Qf7", "Bc2", "Qe7", "Qd1", "Kg6", "Kg2", "Qf7", "Kf2", "Qe7", "Bc1", "Qf7",
-            "Bd2", "Qe7", "Be1", "Qf7", "Qc1", "Qe7", "Qb2", "Qf7", "Kg2", "Qe7", "Bf2", "Qf7",
-            "Qc1", "Qe7", "Ra2", "Qf7", "Qe1", "Qe7", "Kg1", "Qf7", "Rd1", "Qe7", "Rda1", "Qf7",
-            "Qd2", "Qe7", "Qd4", "Rb7", "Kh2", "Qc7", "Bd1", "Ra8", "Bc2", "a5", "Be1", "a4",
-            "Bf2", "Nd7", "Re1", "Nb6", "Raa1", "Nd7", "Rad1", "Nb6", "Re2", "Nd7", "Rde1", "Nb6",
-            "Kg1", "Nd7", "Rd2", "Nb6", "Rdd1", "Nd7", "Qd2", "Nb6", "Qe2", "Nd7", "Rd4", "Nb6",
-            "Red1", "Rd8", "e4", "fxe4", "Bxe4+", "Kh6", "Bc2", "Qe7", "Qe3", "Rbd7", "f5+", "Kh7",
-            "f6+", "Kg8", "Qg5+", "Kf8", "fxe7+", "Rxe7", "Rf1", "Rg7", "Qh6", "Rd7", "Be3+",
-            "Kg8", "Qxh5", "Rdf7", "Rxf7", "Rxf7", "Rf4", "Rxf4", "Bxf4", "Be8", "Qxg4+", "Kf7",
-            "Qh5+", "Ke7", "Qh7+", "Bf7", "Bg5+", "Kf8", "Bh6+", "Ke7", "Bg6", "Kd7", "Qxf7+",
-            "Kc6", "Qxe6+", "Kb7", "Qe7+", "Ka6", "Qc7", "d4", "e6", "d3", "e7", "d2", "e8=Q",
-            "d1=Q+", "Kh2", "Qd2+", "Kh3", "Qxh6", "Qef7", "Qxg6",
-        ])
-        .into_iter()
-        .map(|san| san.to_owned())
-        .map(|san| Draw::from(san))
-    });
 }

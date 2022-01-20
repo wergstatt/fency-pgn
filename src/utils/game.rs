@@ -4,10 +4,8 @@ use crate::utils::coord::{Coord, FromIndex};
 use crate::utils::draw::Draw;
 use crate::utils::figure::Figure;
 use crate::utils::piece::Piece;
-use regex::Regex;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::ops::Range;
-use test::Bencher;
 
 // Define types for improved readability.
 type FEN = String;
@@ -16,10 +14,6 @@ type Coords = Vec<Coord>;
 type Figures = Vec<Figure>;
 type OptFigures = Vec<Option<Figure>>;
 type FigSet = HashSet<Figure>;
-type Moves = Vec<(Figure, Coords)>;
-type MoveMap = HashMap<Figure, Coords>;
-type Blocks = Vec<(Figure, Figure)>;
-type BlockMap = HashMap<Figure, Figures>;
 
 /// Use a constant to prepare all strings that describe the 32 starting position figures.
 const FIGURE_STR_VEC: [&str; 32] = [
@@ -193,23 +187,33 @@ impl Game {
         let mut position: OptFigures = self.position.clone();
 
         // prepare indexes with
-        let (mut king_src, mut king_tgt, mut rook_src, mut rook_tgt): (usize, usize, usize, usize) =
-            (0, 0, 0, 0);
+        let king_src: usize;
+        let king_tgt: usize;
+        let rook_src: usize;
+        let rook_tgt: usize;
 
         // Get the coordinates of the involved king and rook.
         if self.color == Color::B {
             king_src = 4;
             if mv.contains("O-O-O") {
-                (rook_src, king_tgt, rook_tgt) = (0, 2, 3);
+                rook_src = 0;
+                king_tgt = 2;
+                rook_tgt = 3;
             } else {
-                (rook_tgt, king_tgt, rook_src) = (5, 6, 7);
+                rook_tgt = 5;
+                king_tgt = 6;
+                rook_src = 7;
             }
         } else {
             king_src = 60;
             if mv.contains("O-O-O") {
-                (rook_src, king_tgt, rook_tgt) = (56, 58, 59);
+                rook_src = 56;
+                king_tgt = 58;
+                rook_tgt = 59;
             } else {
-                (rook_tgt, king_tgt, rook_src) = (61, 62, 63);
+                rook_tgt = 61;
+                king_tgt = 62;
+                rook_src = 63;
             }
         }
 
@@ -350,13 +354,6 @@ impl From<String> for Game {
 fn get_board() -> Coords {
     let irange = Range { start: 0, end: 64 };
     return Vec::from_iter(irange.map(|i| Coord::from_idx(i)));
-}
-
-fn coords_from_san(coords: Vec<&str>) -> Coords {
-    Vec::from(coords)
-        .into_iter()
-        .map(|c| Coord::from(c))
-        .collect::<Coords>()
 }
 
 fn valid_idx(idx: i8) -> bool {
@@ -721,6 +718,14 @@ fn get_king_moves(fig: &Figure, game: &Game) -> CoordIdx {
 }
 
 //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#[allow(dead_code)]
+fn coords_from_san(coords: Vec<&str>) -> Coords {
+    Vec::from(coords)
+        .into_iter()
+        .map(|c| Coord::from(c))
+        .collect::<Coords>()
+}
+
 #[test]
 fn check_moves_and_blocks_in_new_game_for_white_pawn_a2() {
     let game = Game::new();
@@ -1205,52 +1210,4 @@ fn check_playing_games_pt7() {
         game.to_fen(),
         "2R3k1/5prp/p7/1p4q1/3Q1p2/P4PP1/1P5P/6K1 b - - 1 31".to_string()
     )
-}
-
-//- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#[bench]
-fn bench_new_game(b: &mut Bencher) {
-    b.iter(|| Vec::from([Game::new()]));
-}
-
-#[bench]
-fn bench_writing_fen_expressions_from_games(b: &mut Bencher) {
-    let games: Vec<Game> = Vec::from([
-        "5rk1/1b2n1pp/4R3/1p3pN1/2pP4/r5PP/P4P2/2RQ2Kq w - - 1 24",
-        "r7/p4Q2/bp2p1p1/5k2/3B1P2/4K3/P6P/6R1 b - - 0 26",
-        "1Q6/6pk/p3p2p/3p1p2/5KP1/P4P1P/1P5q/8 w - - 3 36",
-        "r3Bk2/p3n1p1/1p1Q3p/1P2Nb2/P2Pp3/B3n3/2q3PP/R1K4R w - - 2 26",
-        "r1bqr1k1/pppp1ppp/5n2/3P4/1bP5/1PN2nP1/PB2NP1P/R2QKB1R w KQ - 3 11",
-        "5b1Q/3k3p/6p1/8/pP3N2/P4P2/2K3PP/4R3 b - - 0 33",
-        "7k/p1p3pp/1pP2b2/1B6/5P2/P6P/8/1K5r w - - 0 34",
-        "8/8/1p6/p5kp/3N4/5KP1/PP5P/8 w - - 0 40",
-        "2kr1br1/1bQ2p2/p1n1pq2/3p4/3P2pp/2P4P/PP3PPB/RN3RK1 b - - 1 18",
-    ])
-    .into_iter()
-    .map(|fen| Game::from(fen.to_string()))
-    .collect::<Vec<Game>>();
-
-    b.iter(|| games.clone().into_iter().map(|g| g.to_fen()));
-}
-
-#[bench]
-fn bench_playing_game(b: &mut Bencher) {
-    let mut game = Game::new();
-    let mvs = [
-        "d4", "e5", "dxe5", "d6", "exd6", "Bxd6", "Nf3", "Nf6", "Nc3", "O-O", "a3", "Nc6", "e3",
-        "a6", "Be2", "h6", "O-O", "Ne5", "Bd2", "Nxf3+", "Bxf3", "Be5", "Rc1", "c6", "Qe2", "Qd6",
-        "Rfd1", "Bxh2+", "Kh1", "Be5", "e4", "Bxc3", "Bxc3", "Qe6", "Rd3", "Bd7", "Rcd1", "Rad8",
-        "Bxf6", "gxf6", "Rd6", "Qe7", "Rd1d2", "Be6", "Rxd8", "Rxd8", "Rxd8+", "Qxd8", "c4", "Qd4",
-        "c5", "Qxc5", "Qd2", "f5", "exf5", "Bxf5", "Qxh6", "Bg6", "Be4", "Bxe4", "Qh4", "Bg6",
-        "Qd8+", "Kg7", "Qc7", "b5", "b4", "Qc1+", "Kh2", "Qxa3", "Qe5+", "Kg8", "Qe8+", "Kg7",
-        "Qxc6", "Qxb4", "Qxa6", "Qh4+", "Kg1", "b4", "Qa1+", "Qf6", "Qa4", "Qc3", "f3", "b3",
-        "Qa3", "Qc2", "Kh2", "b2",
-    ]
-    .map(|mv| mv.to_string());
-
-    b.iter(|| {
-        mvs.clone()
-            .into_iter()
-            .fold(game.clone(), |g, mv| g.play_move(mv))
-    });
 }

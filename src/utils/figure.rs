@@ -1,10 +1,7 @@
 use crate::utils::color::Color;
 use crate::utils::coord::Coord;
 use crate::utils::piece::Piece;
-use regex::Regex;
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use test::Bencher;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Figure {
@@ -69,28 +66,4 @@ fn check_figure_from() {
             piece: Piece::N,
         }
     );
-}
-
-#[bench]
-fn bench_figure_creation(b: &mut Bencher) {
-    b.iter(|| {
-        Vec::from([
-            Figure::from("ra8"),
-            Figure::from("nb8"),
-            Figure::from("bc8"),
-            Figure::from("qd8"),
-            Figure::from("ke8"),
-            Figure::from("bf8"),
-            Figure::from("ng8"),
-            Figure::from("rh8"),
-            Figure::from("pa7"),
-            Figure::from("pb7"),
-            Figure::from("pc7"),
-            Figure::from("pd7"),
-            Figure::from("pe7"),
-            Figure::from("pf7"),
-            Figure::from("pg7"),
-            Figure::from("ph7"),
-        ])
-    });
 }
