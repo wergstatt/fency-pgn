@@ -4,7 +4,7 @@ use crate::utils::coord::{Coord, FromIndex};
 use crate::utils::draw::Draw;
 use crate::utils::figure::Figure;
 use crate::utils::piece::Piece;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
 // Define types for improved readability.
@@ -77,7 +77,7 @@ impl Game {
         };
     }
 
-    pub fn to_fen(self) -> String {
+    pub fn to_fen_list(self) -> [String; 6] {
         return [
             position_to_fen(self.position),
             self.color.to_string(),
@@ -88,8 +88,31 @@ impl Game {
             },
             self.half_move_clock.to_string(),
             self.full_move_clock.to_string(),
+        ];
+    }
+
+    pub fn to_fen_map(self) -> HashMap<String, String> {
+        let keys: [String; 6] = [
+            "FEN",
+            "Color",
+            "Castling",
+            "EnPassant",
+            "HalfMoveClock",
+            "FullMoveClock",
         ]
-        .join(" ");
+        .map(|x| x.to_string());
+
+        let values = self.to_fen_list();
+
+        return HashMap::from_iter(
+            keys.into_iter()
+                .enumerate()
+                .map(|(k, key)| (key, values[k].clone())),
+        );
+    }
+
+    pub fn to_fen(self) -> String {
+        return self.to_fen_list().join(" ");
     }
 
     pub fn play_move(self, mv: String) -> Self {
@@ -953,6 +976,25 @@ fn check_castling() {
         g2.figures,
         HashSet::from_iter(["Kc1", "Rd1", "rf8", "kg8"].map(|x| Figure::from(x)))
     );
+}
+
+#[test]
+fn check_fen_map() {
+    let game = Game::from(
+        "rnbqk2r/pppp1ppp/3b1n2/8/1PPPp3/P1N1P3/5PPP/R1BQKBNR b KQkq d3 0 6".to_string(),
+    );
+
+    let fen_map = game.to_fen_map();
+
+    assert_eq!(
+        fen_map["FEN"],
+        "rnbqk2r/pppp1ppp/3b1n2/8/1PPPp3/P1N1P3/5PPP/R1BQKBNR"
+    );
+    assert_eq!(fen_map["Color"], "b");
+    assert_eq!(fen_map["Castling"], "KQkq");
+    assert_eq!(fen_map["EnPassant"], "d3");
+    assert_eq!(fen_map["HalfMoveClock"], "0");
+    assert_eq!(fen_map["FullMoveClock"], "6");
 }
 
 #[test]
