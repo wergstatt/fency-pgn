@@ -14,6 +14,12 @@ pub struct Coord {
     pub main_diagonal: i8,
 }
 
+impl Coord {
+    fn to_string(self) -> String {
+        format!("{}{}", self.file, self.rank)
+    }
+}
+
 // Traits
 pub trait FromIndex {
     fn from_idx(idx: i8) -> Self;

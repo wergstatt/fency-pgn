@@ -50,6 +50,9 @@ pub struct Game {
 
     /// Current state of the full-move clock.
     pub full_move_clock: u16,
+
+    /// UCI Notation of the move that has been played
+    pub uci: String,
 }
 
 impl Game {
@@ -74,6 +77,7 @@ impl Game {
             en_passant: None,
             half_move_clock: 0,
             full_move_clock: 1,
+            uci: "0000".to_string(),
         };
     }
 
@@ -191,6 +195,15 @@ impl Game {
                 }
             }
 
+            // Design UCI representation of a move.
+            let mut uci: String = "".to_string();
+            uci.push_str(&moving_figure.coord.to_string()[..]);
+            uci.push_str(&draw.target.to_string()[..]);
+            if draw.is_promo {
+                // uci is always lowercase, thus use lowercase char induced by black.
+                uci.push(draw.promoted_piece.unwrap().to_char(Color::B));
+            }
+
             Game {
                 board: self.board,
                 position,
@@ -207,6 +220,7 @@ impl Game {
                     Color::B => self.full_move_clock + 1,
                     Color::W => self.full_move_clock,
                 },
+                uci,
             }
         }
     }
@@ -214,6 +228,7 @@ impl Game {
     fn castle(self, mv: String) -> Game {
         let mut figures: FigSet = self.figures.clone();
         let mut position: OptFigures = self.position.clone();
+        let mut uci: String = "".to_string();
 
         // prepare indexes with
         let king_src: usize;
@@ -228,10 +243,12 @@ impl Game {
                 rook_src = 0;
                 king_tgt = 2;
                 rook_tgt = 3;
+                uci = "e8c8".to_string();
             } else {
                 rook_tgt = 5;
                 king_tgt = 6;
                 rook_src = 7;
+                uci = "e8g8".to_string();
             }
         } else {
             king_src = 60;
@@ -239,10 +256,12 @@ impl Game {
                 rook_src = 56;
                 king_tgt = 58;
                 rook_tgt = 59;
+                uci = "e1c1".to_string();
             } else {
                 rook_tgt = 61;
                 king_tgt = 62;
                 rook_src = 63;
+                uci = "e1g1".to_string();
             }
         }
 
@@ -276,6 +295,7 @@ impl Game {
                 Color::W => self.full_move_clock,
                 Color::B => self.full_move_clock + 1,
             },
+            uci,
         }
     }
 
@@ -305,6 +325,7 @@ impl Game {
             en_passant: self.en_passant,
             half_move_clock: self.half_move_clock,
             full_move_clock: self.full_move_clock,
+            uci: self.uci,
         }
     }
 
@@ -329,6 +350,7 @@ impl Game {
             en_passant: self.en_passant,
             half_move_clock: self.half_move_clock,
             full_move_clock: self.full_move_clock,
+            uci: self.uci,
         }
     }
 }
@@ -366,6 +388,9 @@ impl From<String> for Game {
         let half_move_clock = hmc_str.parse::<u16>().unwrap();
         let full_move_clock = fmc_str.parse::<u16>().unwrap();
 
+        // As the fen does not reveal the Move, set null move.
+        let uci = "0000".to_string();
+
         Game {
             board,
             position,
@@ -375,6 +400,7 @@ impl From<String> for Game {
             en_passant,
             half_move_clock,
             full_move_clock,
+            uci,
         }
     }
 }
@@ -976,6 +1002,8 @@ fn check_castling() {
         g2.figures,
         HashSet::from_iter(["Kc1", "Rd1", "rf8", "kg8"].map(|x| Figure::from(x)))
     );
+
+    assert_eq!(g2.uci, "e8g8".to_string());
 }
 
 #[test]
@@ -1096,6 +1124,7 @@ fn check_playing_games_pt1() {
         game = game.play_move(mv);
     }
 
+    assert_eq!(game.clone().uci, "c7b6".to_string());
     assert_eq!(
         game.to_fen(),
         "8/7p/1k6/3Q4/2Q5/6Pp/5P1K/8 w - - 1 62".to_string()
@@ -1130,6 +1159,7 @@ fn check_playing_games_pt2() {
         game = game.play_move(mv);
     }
 
+    assert_eq!(game.clone().uci, "g6h6".to_string());
     assert_eq!(game.to_fen(), "7k/5K2/7R/8/8/8/8/8 b - - 60 95".to_string())
 }
 
@@ -1158,10 +1188,11 @@ fn check_playing_games_pt3() {
         game = game.play_move(mv);
     }
 
+    assert_eq!(game.clone().uci, "c1c6".to_string());
     assert_eq!(
         game.to_fen(),
         "8/8/K1q5/8/k2b4/8/8/8 w - - 10 82".to_string()
-    )
+    );
 }
 
 /// https://lichess.org/9opx3qh7
@@ -1184,6 +1215,7 @@ fn check_playing_games_pt4() {
         game = game.play_move(mv);
     }
 
+    assert_eq!(game.clone().uci, "b3b2".to_string());
     assert_eq!(
         game.to_fen(),
         "8/5pk1/6b1/8/8/Q4P2/1pq3PK/8 w - - 0 46".to_string()
@@ -1208,6 +1240,7 @@ fn check_playing_games_pt5() {
         game = game.play_move(mv);
     }
 
+    assert_eq!(game.clone().uci, "c1c2".to_string());
     assert_eq!(
         game.to_fen(),
         "8/p6k/5R2/6p1/1PpPb1Pp/2P2P1P/P1r3K1/4r3 w - - 1 38".to_string()
