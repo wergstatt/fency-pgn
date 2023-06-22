@@ -6,6 +6,7 @@ use crate::utils::figure::Figure;
 use crate::utils::piece::Piece;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
+use std::str::FromStr;
 
 // Define types for improved readability.
 type Fen = String;
@@ -119,7 +120,7 @@ impl Game {
         self.to_fen_list().join(" ")
     }
 
-    pub fn play_move(self, mv: String) -> Self {
+    pub fn play_move(self, mv: &str) -> Self {
         // Separate between castling and a "normal draw" where only one piece is moved.
         if mv.contains("O-O") {
             self.castle(mv)
@@ -128,7 +129,8 @@ impl Game {
             let (mut position, mut figures) = (self.position.clone(), self.figures.clone());
 
             // derive the draw from SAN and identify the moving figure.
-            let draw = Draw::from(mv);
+            // TODO: Figure out what to do if 'mv' is an invalid string
+            let draw = Draw::from_str(mv).unwrap();
             let moving_figure = filter_mover(&draw, &self);
 
             // update figures & position
@@ -225,7 +227,7 @@ impl Game {
         }
     }
 
-    fn castle(self, mv: String) -> Game {
+    fn castle(self, mv: &str) -> Game {
         let mut figures: FigSet = self.figures.clone();
         let mut position: OptFigures = self.position.clone();
         let uci;
@@ -360,15 +362,15 @@ impl Default for Game {
     }
 }
 
-impl From<String> for Game {
-    fn from(fen: String) -> Self {
+impl FromStr for Game {
+    fn from_str(fen: &str) -> Result<Self, Self::Err> {
         let board = get_board();
 
         // Split FEN and assign according variables.
         let fen_parts: Vec<&str> = fen.split(' ').collect();
 
         // Sort string information into the according variables.
-        let position_str: Fen = fen_parts[0].to_owned();
+        let position_str: Fen = fen_parts.first().ok_or(String::from("no position string"))?.to_string();
         let color_str = fen_parts[1];
         let castling_str = fen_parts[2];
         let ep_str = fen_parts[3];
@@ -376,7 +378,7 @@ impl From<String> for Game {
         let fmc_str = fen_parts[5];
 
         // Derive fields from Strings.
-        let position: OptFigures = fen_to_position(position_str, &board);
+        let position: OptFigures = fen_to_position(&position_str, &board);
         let figures: FigSet = position
             .clone()
             .into_iter()
@@ -396,7 +398,7 @@ impl From<String> for Game {
         // As the fen does not reveal the Move, set null move.
         let uci = "0000".to_string();
 
-        Game {
+        Ok(Game {
             board,
             position,
             figures,
@@ -406,8 +408,11 @@ impl From<String> for Game {
             half_move_clock,
             full_move_clock,
             uci,
-        }
+        })
     }
+
+    type Err = String;
+
 }
 
 //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -420,7 +425,7 @@ fn valid_idx(idx: i8) -> bool {
     (0..64).contains(&idx)
 }
 
-fn fen_to_position(fen: Fen, board: &Coords) -> OptFigures {
+fn fen_to_position(fen: &Fen, board: &Coords) -> OptFigures {
     // Use intermediate structure to parse the FEN
     let mut figures: OptFigures = vec![None; 64];
 
@@ -882,7 +887,7 @@ fn check_moves_and_blocks_in_new_game_for_black_rook_e4() {
 #[test]
 fn check_game_from_fen_base() {
     let fen: String = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string();
-    let game = Game::from(fen);
+    let game = Game::from_str(&fen).unwrap();
     assert_eq!(game, Game::new());
 }
 
@@ -890,7 +895,7 @@ fn check_game_from_fen_base() {
 /// Final position from https://lichess.org/U1N9Qa74/black
 fn check_game_from_fen() {
     let fen: String = "5rk1/1b2n1pp/4R3/1p3pN1/2pP4/r5PP/P4P2/2RQ2Kq w - - 1 24".to_string();
-    let game = Game::from(fen);
+    let game = Game::from_str(&fen).unwrap();
 
     // Write down individual position by hand
     let figures = [
@@ -923,7 +928,8 @@ fn check_game_from_fen() {
 /// Final position from https://lichess.org/U1N9Qa74/black
 fn check_fen_conversion_pt0() {
     let fen = "5rk1/1b2n1pp/4R3/1p3pN1/2pP4/r5PP/P4P2/2RQ2Kq w - - 1 24".to_string();
-    assert_eq!(Game::from(fen.clone()).to_fen(), fen);
+    let game = Game::from_str(&fen).unwrap();
+    assert_eq!(game.to_fen(), fen);
 }
 
 #[test]
@@ -936,62 +942,62 @@ fn check_king_extraction() {
 #[test]
 fn check_filter_mover_detection_base() {
     let game = Game::new();
-    let draw = Draw::from("Nc3".to_string());
+    let draw = Draw::from_str("Nc3").unwrap();
     assert_eq!(Figure::from("Nb1"), filter_mover(&draw, &game))
 }
 
 #[test]
 fn check_filter_mover_detection_pawn_hit() {
-    let game = Game::from("k7/8/2q3q1/1PP5/8/8/NR6/KN1N3B w - - 0 1".to_string());
-    let draw = Draw::from("bxc6".to_string());
+    let game = Game::from_str("k7/8/2q3q1/1PP5/8/8/NR6/KN1N3B w - - 0 1").unwrap();
+    let draw = Draw::from_str("bxc6").unwrap();
     assert_eq!(Figure::from("Pb5"), filter_mover(&draw, &game))
 }
 
 #[test]
 fn check_filter_mover_detection_pawn_move() {
-    let game = Game::from("k7/8/2q3q1/1PP5/8/8/NR6/KN1N3B w - - 0 1".to_string());
-    let draw = Draw::from("b6".to_string());
+    let game = Game::from_str("k7/8/2q3q1/1PP5/8/8/NR6/KN1N3B w - - 0 1").unwrap();
+    let draw = Draw::from_str("b6").unwrap();
     assert_eq!(Figure::from("Pb5"), filter_mover(&draw, &game))
 }
 
 #[test]
 fn check_mover_detection_with_remainder() {
-    let game = Game::from("k7/8/q1q3q1/1PP5/8/8/RR6/KN5B b - - 0 1".to_string());
-    let draw = Draw::from("Qgg2".to_string());
+    let game = Game::from_str("k7/8/q1q3q1/1PP5/8/8/RR6/KN5B b - - 0 1").unwrap();
+    let draw = Draw::from_str("Qgg2").unwrap();
 
     assert_eq!(Figure::from("qg6"), filter_mover(&draw, &game));
 }
 
 #[test]
 fn check_mover_detection_with_pinned_queen() {
-    let game = Game::from("k7/8/q1q3q1/1PP5/8/8/RR6/KN5B b - - 0 1".to_string());
-    let draw = Draw::from("Qd6".to_string());
+    let game = Game::from_str("k7/8/q1q3q1/1PP5/8/8/RR6/KN5B b - - 0 1").unwrap();
+    let draw = Draw::from_str("Qd6").unwrap();
 
     assert_eq!(Figure::from("qg6"), filter_mover(&draw, &game));
 }
 
 #[test]
 fn check_mover_detection_with_movable_pinned_queen() {
-    let game = Game::from("k7/8/q1q3q1/1PP5/8/8/RR6/KN5B b - - 0 1".to_string());
-    let draw = Draw::from("Qb7".to_string());
+    let game = Game::from_str("k7/8/q1q3q1/1PP5/8/8/RR6/KN5B b - - 0 1").unwrap();
+    let draw = Draw::from_str("Qb7").unwrap();
 
     assert_eq!(Figure::from("qc6"), filter_mover(&draw, &game));
 }
 
 #[test]
 fn check_mover_detection_with_hit_from_queen() {
-    let game = Game::from("k3R3/8/q1q3q1/1PP5/8/8/RR6/KN5B b - - 0 1".to_string());
-    let draw = Draw::from("Qxe8".to_string());
+    let game = Game::from_str("k3R3/8/q1q3q1/1PP5/8/8/RR6/KN5B b - - 0 1").unwrap();
+    let draw = Draw::from_str("Qxe8").unwrap();
 
     assert_eq!(Figure::from("qg6"), filter_mover(&draw, &game));
 }
 
 #[test]
 fn check_castling() {
-    let game = Game::from("4k2r/8/8/8/8/8/8/R3K3 w Qk - 0 1".to_string());
+    let game = Game::from_str("4k2r/8/8/8/8/8/8/R3K3 w Qk - 0 1").unwrap();
 
-    let g1 = game.play_move("O-O-O".to_string());
-    let g2 = g1.play_move("O-O".to_string());
+    let g1 = game.play_move("O-O-O");
+    let g2 = g1.play_move("O-O");
 
     assert_eq!(
         g2.figures,
@@ -1003,9 +1009,9 @@ fn check_castling() {
 
 #[test]
 fn check_fen_map() {
-    let game = Game::from(
-        "rnbqk2r/pppp1ppp/3b1n2/8/1PPPp3/P1N1P3/5PPP/R1BQKBNR b KQkq d3 0 6".to_string(),
-    );
+    let game = Game::from_str(
+        "rnbqk2r/pppp1ppp/3b1n2/8/1PPPp3/P1N1P3/5PPP/R1BQKBNR b KQkq d3 0 6",
+    ).unwrap();
 
     let fen_map = game.to_fen_map();
 
@@ -1112,8 +1118,7 @@ fn check_playing_games_pt1() {
         "g5", "Ne2", "Bxe2", "a7", "Bf3", "Rb6", "Ra8", "Rb8+", "Rxb8", "axb8=Q+", "Kg7", "d7",
         "g4", "d8=Q", "gxh3", "Qd4+", "f6", "Qb7+", "Kg6", "Qxf3", "Kf7", "Qdxf6+", "Ke8", "Qe4+",
         "Kd7", "Qfe6+", "Kc7", "Qd4", "Kb7", "Qed5+", "Kc7", "Q4xc4+", "Kb6",
-    ]
-    .map(|mv| mv.to_string());
+    ];
 
     for mv in mvs {
         game = game.play_move(mv);
@@ -1147,8 +1152,7 @@ fn check_playing_games_pt2() {
         "Ke4", "Kg7", "Ke5", "Kg6", "Ke6", "Kg7", "Rf6", "Kg8", "Ke7", "Kg7", "Ke6", "Kg8", "Kf5",
         "Kg7", "Kg5", "Kh7", "Rg6", "Kh8", "Kf6", "Kh7", "Kf7", "Kh8", "Kf8", "Kh7", "Kf7", "Kh8",
         "Rh6#",
-    ]
-    .map(|mv| mv.to_string());
+    ];
 
     for mv in mvs {
         game = game.play_move(mv);
@@ -1176,8 +1180,7 @@ fn check_playing_games_pt3() {
         "Bxh1", "Kxh1", "Kg3", "Kg1", "Kf3", "Kf1", "Ke3", "Ke1", "Kd3", "Kd1", "Kc4", "Kc2",
         "Kb5", "Kxb3", "Ka5", "Ka3", "Kb5", "b3", "Kc4", "Ba1", "Kd3", "b2", "Kc2", "Ka2", "Kc3",
         "b1=Q+", "Kc4", "Qc1+", "Kb5", "Ka3", "Kb6", "Bd4+", "Kb7", "Ka4", "Ka6", "Qc6#",
-    ]
-    .map(|mv| mv.to_string());
+    ];
 
     for mv in mvs {
         game = game.play_move(mv);
@@ -1203,8 +1206,7 @@ fn check_playing_games_pt4() {
         "Qd8+", "Kg7", "Qc7", "b5", "b4", "Qc1+", "Kh2", "Qxa3", "Qe5+", "Kg8", "Qe8+", "Kg7",
         "Qxc6", "Qxb4", "Qxa6", "Qh4+", "Kg1", "b4", "Qa1+", "Qf6", "Qa4", "Qc3", "f3", "b3",
         "Qa3", "Qc2", "Kh2", "b2",
-    ]
-    .map(|mv| mv.to_string());
+    ];
 
     for mv in mvs {
         game = game.play_move(mv);
@@ -1228,8 +1230,7 @@ fn check_playing_games_pt5() {
         "Bf4", "Bh6", "Rfe1", "O-O", "Rxe7", "Rae8", "Rxb7", "f6", "Ne6", "Rxe6", "Bxh6", "Rf7",
         "Rb8+", "Kh7", "Bf4", "g5", "Bd2", "Re2", "Be1", "Rfe7", "Kf1", "Bc2", "Rc8", "Bd3",
         "Rxc6", "Rc2+", "Kg1", "Rxc1", "Rxf6", "h4", "g4", "Rexe1+", "Kg2", "Be4+", "f3", "Rc2#",
-    ]
-    .map(|mv| mv.to_string());
+    ];
 
     for mv in mvs {
         game = game.play_move(mv);
@@ -1252,8 +1253,7 @@ fn check_playing_games_pt6() {
         "Rb4", "b3", "h6", "Bd2", "Rxc4", "bxc4", "Qe6", "Rb1", "Qc8", "f3", "Bc5", "Na4", "Bd4",
         "Bb4", "c5", "Bxc5", "Kd7", "Bxd4", "Ke8", "Bxe5", "Ng4", "Bxg7", "Kf7", "Bxh8", "Qxh8",
         "fxg4", "Qf6", "Qf3", "Ke7", "Qxf6+", "Kxf6", "O-O+",
-    ]
-    .map(|mv| mv.to_string());
+    ];
 
     for mv in mvs {
         game = game.play_move(mv);
@@ -1275,8 +1275,7 @@ fn check_playing_games_pt7() {
         "Bxf6", "gxf6", "Qxd4", "Bxd5", "Bxd5", "c6", "O-O", "cxd5", "exd5", "Nc6", "Qg4+", "Kh8",
         "dxc6", "Qd6", "Rac1", "Rac8", "Qb4", "Qe5", "Rfe1", "Qg5", "c7", "Rg8", "g3", "f5", "Rc6",
         "f4", "Qd4+", "Rg7", "Re8+", "Rxe8", "c8=Q", "Rg8", "Qxg8+", "Kxg8", "Rc8+",
-    ]
-    .map(|mv| mv.to_string());
+    ];
 
     for mv in mvs {
         game = game.play_move(mv);
@@ -1296,8 +1295,7 @@ fn check_playing_games_pt8() {
         "e4", "e5", "f4", "exf4", "Nf3", "Nf6", "e5", "Nh5", "Bc4", "g5", "h4", "Ng3", "Nxg5",
         "Nxh1", "Bxf7+", "Ke7", "Nc3", "c6", "d4", "h6", "Qh5", "Bg7", "Nge4", "Qf8", "Nd6", "Na6",
         "Bxf4", "Nb4", "Kd2", "Nf2", "Rf1", "Rh7", "Rxf2", "Bh8", "Bg5+", "hxg5", "Qxg5+",
-    ]
-    .map(|mv| mv.to_string());
+    ];
 
     for mv in mvs {
         game = game.play_move(mv);
@@ -1321,8 +1319,7 @@ fn check_playing_games_pt9() {
         "Nf7", "Rxe6", "Qxc2", "Re7", "Qc1+", "Kg2", "Rg7", "Rd7", "Kg8", "Qe7", "Qc6+", "Kg1",
         "h6", "Rxc7", "Qd6", "Qe8+", "Qf8", "Qd7", "Ng5", "Qd5+", "Kh7", "Rxg7+", "Kxg7", "Qb7+",
         "Qf7", "Qxb6", "Qe6", "Qc5", "Nf3+", "Kg2", "Qe4", "Kh3", "Ng5#",
-    ]
-    .map(|mv| mv.to_string());
+    ];
 
     for mv in mvs {
         game = game.play_move(mv);
@@ -1345,8 +1342,7 @@ fn check_playing_games_pt10() {
         "Nc7", "a6", "Bc6", "Ba4", "Be4", "Qa5", "Na8", "dxc5", "h5", "Nd4", "h4", "Nb5", "d5",
         "cxd6", "Qd7", "Nd4", "Qc7", "dxc7", "Rxd4", "gxh4", "Rxh4", "Rac1", "Nxc7", "Qc5", "Ba8",
         "Qxa7", "Rh8", "Qxd4",
-    ]
-    .map(|mv| mv.to_string());
+    ];
 
     for mv in mvs {
         game = game.play_move(mv);
