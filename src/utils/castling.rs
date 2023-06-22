@@ -39,7 +39,7 @@ impl Castling {
     }
 
     pub fn update(self, figure: Figure) -> Self {
-        let mut castling = self.clone();
+        let mut castling = self;
 
         if figure.piece == Piece::R {
             if figure.color == Color::W {
@@ -48,12 +48,10 @@ impl Castling {
                 } else if figure.coord.idx == 63 {
                     castling.white_kingside = false;
                 }
-            } else {
-                if figure.coord.idx == 0 {
-                    castling.black_queenside = false;
-                } else if figure.coord.idx == 7 {
-                    castling.black_kingside = false;
-                }
+            } else if figure.coord.idx == 0 {
+                castling.black_queenside = false;
+            } else if figure.coord.idx == 7 {
+                castling.black_kingside = false;
             }
         } else if figure.piece == Piece::K {
             if figure.color == Color::W {
@@ -69,14 +67,20 @@ impl Castling {
     }
 }
 
+impl Default for Castling {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl From<&str> for Castling {
     fn from(fen: &str) -> Self {
-        return Castling {
+        Castling {
             white_kingside: fen.contains('K'),
             white_queenside: fen.contains('Q'),
             black_kingside: fen.contains('k'),
             black_queenside: fen.contains('q'),
-        };
+        }
     }
 }
 
@@ -99,8 +103,8 @@ impl Display for Castling {
 
         // Make all results &str.
         let dash = "-".to_string();
-        let ca = (&ca[..]).to_string();
+        let ca = ca[..].to_string();
 
-        write!(f, "{}", if ca.len() == 0 { dash } else { ca })
+        write!(f, "{}", if ca.is_empty() { dash } else { ca })
     }
 }

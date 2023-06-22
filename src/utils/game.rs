@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
 // Define types for improved readability.
-type FEN = String;
+type Fen = String;
 type CoordIdx = Vec<i8>;
 type Coords = Vec<Coord>;
 type Figures = Vec<Figure>;
@@ -64,7 +64,7 @@ impl Game {
             position[fig.coord.idx as usize] = Some(fig);
         }
 
-        return Game {
+        Game {
             board: get_board(),
             position: position.clone(),
             figures: position
@@ -78,11 +78,11 @@ impl Game {
             half_move_clock: 0,
             full_move_clock: 1,
             uci: "0000".to_string(),
-        };
+        }
     }
 
     pub fn to_fen_list(self) -> [String; 6] {
-        return [
+        [
             position_to_fen(self.position),
             self.color.to_string(),
             self.castling.to_string(),
@@ -92,7 +92,7 @@ impl Game {
             },
             self.half_move_clock.to_string(),
             self.full_move_clock.to_string(),
-        ];
+        ]
     }
 
     pub fn to_fen_map(self) -> HashMap<String, String> {
@@ -108,21 +108,21 @@ impl Game {
 
         let values = self.to_fen_list();
 
-        return HashMap::from_iter(
+        HashMap::from_iter(
             keys.into_iter()
                 .enumerate()
                 .map(|(k, key)| (key, values[k].clone())),
-        );
+        )
     }
 
     pub fn to_fen(self) -> String {
-        return self.to_fen_list().join(" ");
+        self.to_fen_list().join(" ")
     }
 
     pub fn play_move(self, mv: String) -> Self {
         // Separate between castling and a "normal draw" where only one piece is moved.
         if mv.contains("O-O") {
-            return self.castle(mv);
+            self.castle(mv)
         } else {
             // prepare position and figures to be changed.
             let (mut position, mut figures) = (self.position.clone(), self.figures.clone());
@@ -135,7 +135,7 @@ impl Game {
             position[moving_figure.coord.idx as usize] = None;
             figures.remove(&moving_figure);
             if draw.is_hit {
-                if !self.en_passant.is_none()
+                if self.en_passant.is_some()
                     && (moving_figure.piece == Piece::P)
                     && (draw.target == self.en_passant.unwrap())
                 {
@@ -182,7 +182,7 @@ impl Game {
                 && ((moving_figure.coord.y - draw.target.y).abs() == 2)
             {
                 let ep_idx = (draw.target.idx + self.color.factor() * 8) as usize;
-                let ep_coord = self.clone().board[ep_idx];
+                let ep_coord = self.board[ep_idx];
                 let mut ep_candidates = self.figures.clone().into_iter().filter(|f| {
                     f.color == self.color.next()
                         && (f.piece == Piece::P)
@@ -190,7 +190,7 @@ impl Game {
                         && ((f.coord.x - draw.target.x).abs() == 1)
                 });
 
-                if !ep_candidates.next().is_none() {
+                if ep_candidates.next().is_some() {
                     en_passant = Some(ep_coord);
                 }
             }
@@ -228,7 +228,7 @@ impl Game {
     fn castle(self, mv: String) -> Game {
         let mut figures: FigSet = self.figures.clone();
         let mut position: OptFigures = self.position.clone();
-        let mut uci: String = "".to_string();
+        let uci;
 
         // prepare indexes with
         let king_src: usize;
@@ -266,8 +266,8 @@ impl Game {
         }
 
         // get the according figures that will be involved.
-        let king = position[king_src].unwrap().clone();
-        let rook = position[rook_src].unwrap().clone();
+        let king = position[king_src].unwrap();
+        let rook = position[rook_src].unwrap();
         let new_king = king.move_to(&self.board[king_tgt]);
         let new_rook = rook.move_to(&self.board[rook_tgt]);
 
@@ -304,7 +304,6 @@ impl Game {
             .into_iter()
             .find(|f| (f.piece == Piece::K) & (f.color == color))
             .unwrap()
-            .clone()
     }
 
     fn remove_figure(self, figure: &Figure) -> Self {
@@ -336,7 +335,7 @@ impl Game {
 
         // remove the figure
         let moved_figure = figure.move_to(target);
-        new_figures.insert(moved_figure.clone());
+        new_figures.insert(moved_figure);
         new_figures.remove(figure);
         new_position[target.idx as usize] = Some(moved_figure);
         new_position[figure.coord.idx as usize] = None;
@@ -355,15 +354,21 @@ impl Game {
     }
 }
 
+impl Default for Game {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl From<String> for Game {
     fn from(fen: String) -> Self {
         let board = get_board();
 
         // Split FEN and assign according variables.
-        let fen_parts: Vec<&str> = fen.split(" ").collect();
+        let fen_parts: Vec<&str> = fen.split(' ').collect();
 
         // Sort string information into the according variables.
-        let position_str: FEN = fen_parts[0].to_owned();
+        let position_str: Fen = fen_parts[0].to_owned();
         let color_str = fen_parts[1];
         let castling_str = fen_parts[2];
         let ep_str = fen_parts[3];
@@ -379,11 +384,11 @@ impl From<String> for Game {
             .map(|f| f.unwrap())
             .collect();
         let color = Color::from(color_str.chars().next().unwrap());
-        let castling = Castling::from(&castling_str[..]);
+        let castling = Castling::from(castling_str);
         let en_passant: Option<Coord> = if ep_str == "-" {
             None
         } else {
-            Some(Coord::from(&ep_str[..]))
+            Some(Coord::from(ep_str))
         };
         let half_move_clock = hmc_str.parse::<u16>().unwrap();
         let full_move_clock = fmc_str.parse::<u16>().unwrap();
@@ -408,21 +413,21 @@ impl From<String> for Game {
 //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 fn get_board() -> Coords {
     let irange = Range { start: 0, end: 64 };
-    return Vec::from_iter(irange.map(|i| Coord::from_idx(i)));
+    Vec::from_iter(irange.map(Coord::from_idx))
 }
 
 fn valid_idx(idx: i8) -> bool {
-    (idx >= 0) & (idx < 64)
+    (0..64).contains(&idx)
 }
 
-fn fen_to_position(fen: FEN, board: &Coords) -> OptFigures {
+fn fen_to_position(fen: Fen, board: &Coords) -> OptFigures {
     // Use intermediate structure to parse the FEN
     let mut figures: OptFigures = vec![None; 64];
 
     // count through the board/fen using i.
     let mut i: usize = 0;
     for l in fen.chars() {
-        if l.is_digit(10) {
+        if l.is_ascii_digit() {
             i += l.to_digit(10).unwrap() as usize;
         } else if l == '/' {
             continue;
@@ -432,16 +437,16 @@ fn fen_to_position(fen: FEN, board: &Coords) -> OptFigures {
                 piece: Piece::from(l),
                 coord: board[i],
             });
-            i += 1 as usize;
+            i += 1_usize;
         }
     }
 
-    return figures;
+    figures
 }
 
-fn position_to_fen(position: OptFigures) -> FEN {
+fn position_to_fen(position: OptFigures) -> Fen {
     // At several positions numbers have to be added. Thus, use a separate function.
-    fn unload_space(mut spacer: u8, fen: &mut FEN) -> u8 {
+    fn unload_space(mut spacer: u8, fen: &mut Fen) -> u8 {
         if spacer > 0 {
             fen.push(char::from_digit(spacer as u32, 10).unwrap());
             spacer = 0
@@ -460,11 +465,11 @@ fn position_to_fen(position: OptFigures) -> FEN {
         }
 
         // Either increase empty space counter (spacer) or set figure.
-        if figure.is_none() {
-            spacer += 1
-        } else {
+        if let Some(figure) = figure {
             spacer = unload_space(spacer, &mut fen);
-            fen.push(figure.unwrap().to_char());
+            fen.push(figure.to_char());
+        } else {
+            spacer += 1
         }
     }
 
@@ -481,17 +486,17 @@ fn filter_mover(draw: &Draw, game: &Game) -> Figure {
         .into_iter()
         .filter(|f| (f.color == game.color) & (f.piece == draw.piece))
         .collect();
-    return if figs.clone().into_iter().count() == 1 {
-        figs.clone().into_iter().next().unwrap()
+    if figs.len() == 1 {
+        figs.into_iter().next().unwrap()
     } else {
         filter_on_remainder(figs, draw, game)
-    };
+    }
 }
 
 fn filter_on_remainder(figures: FigSet, draw: &Draw, game: &Game) -> Figure {
     let figs: FigSet = if draw.remainder_file.is_none() & draw.remainder_rank.is_none() {
         figures
-    } else if !draw.remainder_file.is_none() & !draw.remainder_rank.is_none() {
+    } else if draw.remainder_file.is_some() & draw.remainder_rank.is_some() {
         figures
             .into_iter()
             .filter(|f| {
@@ -499,12 +504,12 @@ fn filter_on_remainder(figures: FigSet, draw: &Draw, game: &Game) -> Figure {
                     & (f.coord.rank == draw.remainder_rank.unwrap())
             })
             .collect()
-    } else if !draw.remainder_file.is_none() {
+    } else if draw.remainder_file.is_some() {
         figures
             .into_iter()
             .filter(|f| f.coord.file == draw.remainder_file.unwrap())
             .collect()
-    } else if !draw.remainder_rank.is_none() {
+    } else if draw.remainder_rank.is_some() {
         figures
             .into_iter()
             .filter(|f| f.coord.rank == draw.remainder_rank.unwrap())
@@ -513,11 +518,11 @@ fn filter_on_remainder(figures: FigSet, draw: &Draw, game: &Game) -> Figure {
         figures
     };
 
-    return if figs.clone().into_iter().count() == 1 {
-        figs.clone().into_iter().next().unwrap()
+    if figs.len() == 1 {
+        figs.into_iter().next().unwrap()
     } else {
         filter_on_moves(figs, draw, game)
-    };
+    }
 }
 
 fn filter_on_moves(figures: FigSet, draw: &Draw, game: &Game) -> Figure {
@@ -532,11 +537,11 @@ fn filter_on_moves(figures: FigSet, draw: &Draw, game: &Game) -> Figure {
             .filter(|f| get_moves(f, game).contains(&draw.target))
             .collect()
     };
-    return if figs.clone().into_iter().count() == 1 {
-        figs.clone().into_iter().next().unwrap()
+    if figs.len() == 1 {
+        figs.into_iter().next().unwrap()
     } else {
         filter_on_pins(figs, draw, game)
-    };
+    }
 }
 
 fn filter_on_pins(figures: FigSet, draw: &Draw, game: &Game) -> Figure {
@@ -571,7 +576,7 @@ fn filter_on_pins(figures: FigSet, draw: &Draw, game: &Game) -> Figure {
         }
     }
 
-    return figs.into_iter().next().unwrap();
+    figs.into_iter().next().unwrap()
 }
 
 fn get_moves(fig: &Figure, game: &Game) -> Coords {
@@ -584,10 +589,10 @@ fn get_moves(fig: &Figure, game: &Game) -> Coords {
         Piece::K => get_king_moves(fig, game),
     };
 
-    return coordis
+    coordis
         .into_iter()
         .map(|ci| game.board[ci as usize])
-        .collect::<Coords>();
+        .collect::<Coords>()
 }
 
 fn get_hits(fig: &Figure, game: &Game) -> Coords {
@@ -608,12 +613,12 @@ fn get_pawn_hits(fig: &Figure, game: &Game) -> CoordIdx {
     // Add hits if appropriate.
     for i in [7, 9] {
         let ti: i8 = ci - f * i;
-        if valid_idx(ti) && !game.position[ti as usize].is_none() {
+        if valid_idx(ti) && game.position[ti as usize].is_some() {
             if game.position[ti as usize].unwrap().color != fig.color {
                 coordix.push(ti);
             }
         } else if valid_idx(ti)
-            && !game.en_passant.is_none()
+            && game.en_passant.is_some()
             && (game.en_passant.unwrap().idx == ti)
         {
             coordix.push(ti);
@@ -637,15 +642,13 @@ fn get_pawn_moves(fig: &Figure, game: &Game) -> CoordIdx {
     // if the pawn hasn't moved yet, add the square two apart, if unblocked.
     //  Note: The square in front must be accessible to make the 2nd valid.
     if (fig.color.is_white() & (fig.coord.y == 1)) | (fig.color.is_black() & (fig.coord.y == 6)) {
-        let tii: i8 = &ci - f * 16;
-        if valid_idx(tii) & game.position[ti as usize].is_none() {
-            if !coordix.is_empty() {
-                coordix.push(tii);
-            }
+        let tii: i8 = ci - f * 16;
+        if valid_idx(tii) & game.position[ti as usize].is_none() && !coordix.is_empty() {
+            coordix.push(tii);
         }
     }
 
-    return coordix;
+    coordix
 }
 
 fn get_knight_moves(fig: &Figure, game: &Game) -> CoordIdx {
@@ -656,18 +659,12 @@ fn get_knight_moves(fig: &Figure, game: &Game) -> CoordIdx {
     // loop over possible jump locations and check if those feasible.
     for i in [-17, -15, -10, -6, 6, 10, 15, 17] {
         let ti: i8 = ci + i;
-        if valid_idx(ti) && ((fig.coord.x - game.board[ti as usize].x).abs() < 3) {
-            if game.position[ti as usize].is_none() {
-                coordix.push(ti);
-            } else {
-                if game.position[ti as usize].unwrap().color != fig.color {
-                    coordix.push(ti);
-                }
-            }
+        if valid_idx(ti) && ((fig.coord.x - game.board[ti as usize].x).abs() < 3) && (game.position[ti as usize].is_none() || game.position[ti as usize].unwrap().color != fig.color) {
+            coordix.push(ti);
         }
     }
 
-    return coordix;
+    coordix
 }
 
 fn get_bishop_moves(fig: &Figure, game: &Game) -> CoordIdx {
@@ -700,7 +697,7 @@ fn get_bishop_moves(fig: &Figure, game: &Game) -> CoordIdx {
         }
     }
 
-    return coordix;
+    coordix
 }
 
 fn get_rook_moves(fig: &Figure, game: &Game) -> CoordIdx {
@@ -734,7 +731,7 @@ fn get_rook_moves(fig: &Figure, game: &Game) -> CoordIdx {
         }
     }
 
-    return coordix;
+    coordix
 }
 
 fn get_queen_moves(fig: &Figure, game: &Game) -> CoordIdx {
@@ -747,7 +744,7 @@ fn get_queen_moves(fig: &Figure, game: &Game) -> CoordIdx {
     coordix.extend(bishop_coordix);
     coordix.extend(rook_coordix);
 
-    return coordix;
+    coordix
 }
 
 fn get_king_moves(fig: &Figure, game: &Game) -> CoordIdx {
@@ -761,23 +758,21 @@ fn get_king_moves(fig: &Figure, game: &Game) -> CoordIdx {
         {
             if game.position[ti as usize].is_none() {
                 coordix.push(ti);
-            } else {
-                if game.position[ti as usize].unwrap().color != fig.color {
-                    coordix.push(ti)
-                }
+            } else if game.position[ti as usize].unwrap().color != fig.color {
+                coordix.push(ti)
             }
         }
     }
 
-    return coordix;
+    coordix
 }
 
 //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #[allow(dead_code)]
 fn coords_from_san(coords: Vec<&str>) -> Coords {
-    Vec::from(coords)
+    coords
         .into_iter()
-        .map(|c| Coord::from(c))
+        .map(Coord::from)
         .collect::<Coords>()
 }
 
@@ -935,7 +930,7 @@ fn check_fen_conversion_pt0() {
 fn check_king_extraction() {
     let game = Game::new();
     assert_eq!(game.clone().find_king(Color::W), Figure::from("Ke1"));
-    assert_eq!(game.clone().find_king(Color::B), Figure::from("ke8"));
+    assert_eq!(game.find_king(Color::B), Figure::from("ke8"));
 }
 
 #[test]
@@ -1000,7 +995,7 @@ fn check_castling() {
 
     assert_eq!(
         g2.figures,
-        HashSet::from_iter(["Kc1", "Rd1", "rf8", "kg8"].map(|x| Figure::from(x)))
+        HashSet::from_iter(["Kc1", "Rd1", "rf8", "kg8"].map(Figure::from))
     );
 
     assert_eq!(g2.uci, "e8g8".to_string());
@@ -1124,7 +1119,7 @@ fn check_playing_games_pt1() {
         game = game.play_move(mv);
     }
 
-    assert_eq!(game.clone().uci, "c7b6".to_string());
+    assert_eq!(game.uci, "c7b6".to_string());
     assert_eq!(
         game.to_fen(),
         "8/7p/1k6/3Q4/2Q5/6Pp/5P1K/8 w - - 1 62".to_string()
@@ -1159,7 +1154,7 @@ fn check_playing_games_pt2() {
         game = game.play_move(mv);
     }
 
-    assert_eq!(game.clone().uci, "g6h6".to_string());
+    assert_eq!(game.uci, "g6h6".to_string());
     assert_eq!(game.to_fen(), "7k/5K2/7R/8/8/8/8/8 b - - 60 95".to_string())
 }
 
@@ -1188,7 +1183,7 @@ fn check_playing_games_pt3() {
         game = game.play_move(mv);
     }
 
-    assert_eq!(game.clone().uci, "c1c6".to_string());
+    assert_eq!(game.uci, "c1c6".to_string());
     assert_eq!(
         game.to_fen(),
         "8/8/K1q5/8/k2b4/8/8/8 w - - 10 82".to_string()
@@ -1215,7 +1210,7 @@ fn check_playing_games_pt4() {
         game = game.play_move(mv);
     }
 
-    assert_eq!(game.clone().uci, "b3b2".to_string());
+    assert_eq!(game.uci, "b3b2".to_string());
     assert_eq!(
         game.to_fen(),
         "8/5pk1/6b1/8/8/Q4P2/1pq3PK/8 w - - 0 46".to_string()
@@ -1240,7 +1235,7 @@ fn check_playing_games_pt5() {
         game = game.play_move(mv);
     }
 
-    assert_eq!(game.clone().uci, "c1c2".to_string());
+    assert_eq!(game.uci, "c1c2".to_string());
     assert_eq!(
         game.to_fen(),
         "8/p6k/5R2/6p1/1PpPb1Pp/2P2P1P/P1r3K1/4r3 w - - 1 38".to_string()

@@ -41,23 +41,14 @@ impl From<String> for Draw {
             is_promo: san.contains('='),
             is_hit: san.contains('x'),
 
-            target: Coord::from(capture_map.get("Target").unwrap().clone()),
+            target: Coord::from(*capture_map.get("Target").unwrap()),
             piece: match capture_map.get("Piece") {
                 None => Piece::P,
                 Some(&p) => Piece::from(p.chars().next().unwrap()),
             },
-            promoted_piece: match capture_map.get("PromotesTo") {
-                None => None,
-                Some(&c) => Some(Piece::from(c.chars().next().unwrap())),
-            },
-            remainder_file: match capture_map.get("RemainderFile") {
-                None => None,
-                Some(&c) => Some(c.chars().next().unwrap()),
-            },
-            remainder_rank: match capture_map.get("RemainderRank") {
-                None => None,
-                Some(&c) => Some(c.chars().next().unwrap()),
-            },
+            promoted_piece: capture_map.get("PromotesTo").map(|&c| Piece::from(c.chars().next().unwrap())),
+            remainder_file: capture_map.get("RemainderFile").map(|&c| c.chars().next().unwrap()),
+            remainder_rank: capture_map.get("RemainderRank").map(|&c| c.chars().next().unwrap()),
         }
     }
 }
@@ -68,10 +59,10 @@ fn check_draw_from_san_pt1() {
 
     assert_eq!(draw.target, Coord::from("a3"));
     assert_eq!(draw.piece, Piece::P);
-    assert_eq!(draw.is_check, false);
-    assert_eq!(draw.is_checkmate, false);
-    assert_eq!(draw.is_promo, false);
-    assert_eq!(draw.is_hit, false);
+    assert!(!draw.is_check);
+    assert!(!draw.is_checkmate);
+    assert!(!draw.is_promo);
+    assert!(!draw.is_hit);
     assert_eq!(draw.promoted_piece, None);
     assert_eq!(draw.remainder_file, None);
     assert_eq!(draw.remainder_rank, None);
@@ -83,10 +74,10 @@ fn check_draw_from_san_pt2() {
 
     assert_eq!(draw.target, Coord::from("d1"));
     assert_eq!(draw.piece, Piece::P);
-    assert_eq!(draw.is_check, true);
-    assert_eq!(draw.is_checkmate, true);
-    assert_eq!(draw.is_promo, true);
-    assert_eq!(draw.is_hit, true);
+    assert!(draw.is_check);
+    assert!(draw.is_checkmate);
+    assert!(draw.is_promo);
+    assert!(draw.is_hit);
     assert_eq!(draw.promoted_piece, Some(Piece::Q));
     assert_eq!(draw.remainder_file, Some('e'));
     assert_eq!(draw.remainder_rank, None);
@@ -98,10 +89,10 @@ fn check_draw_from_san_pt3() {
 
     assert_eq!(draw.target, Coord::from("c6"));
     assert_eq!(draw.piece, Piece::R);
-    assert_eq!(draw.is_check, true);
-    assert_eq!(draw.is_checkmate, false);
-    assert_eq!(draw.is_promo, false);
-    assert_eq!(draw.is_hit, true);
+    assert!(draw.is_check);
+    assert!(!draw.is_checkmate);
+    assert!(!draw.is_promo);
+    assert!(draw.is_hit);
     assert_eq!(draw.promoted_piece, None);
     assert_eq!(draw.remainder_file, Some('a'));
     assert_eq!(draw.remainder_rank, None);
@@ -113,10 +104,10 @@ fn check_draw_from_san_pt4() {
 
     assert_eq!(draw.target, Coord::from("c3"));
     assert_eq!(draw.piece, Piece::N);
-    assert_eq!(draw.is_check, false);
-    assert_eq!(draw.is_checkmate, false);
-    assert_eq!(draw.is_promo, false);
-    assert_eq!(draw.is_hit, false);
+    assert!(!draw.is_check);
+    assert!(!draw.is_checkmate);
+    assert!(!draw.is_promo);
+    assert!(!draw.is_hit);
     assert_eq!(draw.promoted_piece, None);
     assert_eq!(draw.remainder_file, None);
     assert_eq!(draw.remainder_rank, Some('1'));
