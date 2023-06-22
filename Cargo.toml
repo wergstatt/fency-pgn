@@ -1,6 +1,6 @@
 [package]
 name = "fency-pgn"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 license = "MIT"
 homepage = "https://github.com/jawerg/fency-pgn"
