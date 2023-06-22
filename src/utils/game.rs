@@ -64,15 +64,15 @@ impl Game {
             let fig = Figure::from(fstr);
             position[fig.coord.idx as usize] = Some(fig);
         }
+        let figures = position
+                .iter()
+                .filter_map(|fig| *fig)
+                .collect();
 
         Game {
             board: get_board(),
-            position: position.clone(),
-            figures: position
-                .into_iter()
-                .filter(|fig| !fig.is_none())
-                .map(|fig| fig.unwrap())
-                .collect(),
+            position,
+            figures,
             color: Color::W,
             castling: Castling::new(),
             en_passant: None,
@@ -120,30 +120,26 @@ impl Game {
         self.to_fen_list().join(" ")
     }
 
-    pub fn play_move(self, mv: &str) -> Self {
+    pub fn play_move(&mut self, mv: &str) {
         // Separate between castling and a "normal draw" where only one piece is moved.
         if mv.contains("O-O") {
             self.castle(mv)
         } else {
-            // prepare position and figures to be changed.
-            let (mut position, mut figures) = (self.position.clone(), self.figures.clone());
-
             // derive the draw from SAN and identify the moving figure.
-            // TODO: Figure out what to do if 'mv' is an invalid string
+            // TODO: Figure out what to do if 'mv' is an invalid string instead of just unwrapping
             let draw = Draw::from_str(mv).unwrap();
-            let moving_figure = filter_mover(&draw, &self);
+            let moving_figure = filter_mover(&draw, self);
 
             // update figures & position
-            position[moving_figure.coord.idx as usize] = None;
-            figures.remove(&moving_figure);
+            self.position[moving_figure.coord.idx as usize] = None;
+            self.figures.remove(&moving_figure);
             if draw.is_hit {
                 if self.en_passant.is_some()
                     && (moving_figure.piece == Piece::P)
                     && (draw.target == self.en_passant.unwrap())
                 {
-                    let ep_figure = figures
-                        .clone()
-                        .into_iter()
+                    let ep_figure = *self.figures
+                        .iter()
                         .find(|f| {
                             (f.color == self.color.next())
                                 && (f.coord.x == draw.target.x)
@@ -151,17 +147,17 @@ impl Game {
                         })
                         .unwrap();
 
-                    position[ep_figure.coord.idx as usize] = None;
-                    figures.remove(&ep_figure);
+                    self.position[ep_figure.coord.idx as usize] = None;
+                    self.figures.remove(&ep_figure);
                 } else {
-                    let hit_figure = figures
+                    let hit_figure = self.figures
                         .clone()
                         .into_iter()
                         .find(|f| f.coord == draw.target)
                         .unwrap();
 
-                    position[hit_figure.coord.idx as usize] = None;
-                    figures.remove(&hit_figure);
+                    self.position[hit_figure.coord.idx as usize] = None;
+                    self.figures.remove(&hit_figure);
                 }
             }
             if draw.is_promo {
@@ -170,16 +166,16 @@ impl Game {
                     coord: draw.target,
                     piece: draw.promoted_piece.unwrap(),
                 };
-                position[promoted_figure.coord.idx as usize] = Some(promoted_figure);
-                figures.insert(promoted_figure);
+                self.position[promoted_figure.coord.idx as usize] = Some(promoted_figure);
+                self.figures.insert(promoted_figure);
             } else {
                 let moved_figure = moving_figure.move_to(&draw.target);
-                position[moved_figure.coord.idx as usize] = Some(moved_figure);
-                figures.insert(moved_figure);
+                self.position[moved_figure.coord.idx as usize] = Some(moved_figure);
+                self.figures.insert(moved_figure);
             }
 
             // Account for En-Passant
-            let mut en_passant = None;
+            self.en_passant = None;
             if (moving_figure.piece == Piece::P)
                 && ((moving_figure.coord.y - draw.target.y).abs() == 2)
             {
@@ -193,7 +189,7 @@ impl Game {
                 });
 
                 if ep_candidates.next().is_some() {
-                    en_passant = Some(ep_coord);
+                    self.en_passant = Some(ep_coord);
                 }
             }
 
@@ -206,32 +202,22 @@ impl Game {
                 uci.push(draw.promoted_piece.unwrap().to_char(Color::B));
             }
 
-            Game {
-                board: self.board,
-                position,
-                figures,
-                color: self.color.next(),
-                castling: self.castling.update(moving_figure),
-                en_passant,
-                half_move_clock: if draw.is_hit | (draw.piece == Piece::P) {
-                    0
-                } else {
-                    self.half_move_clock + 1
-                },
-                full_move_clock: match self.color {
-                    Color::B => self.full_move_clock + 1,
-                    Color::W => self.full_move_clock,
-                },
-                uci,
+            // Update game
+            self.uci = uci;
+            self.half_move_clock = if draw.is_hit || (draw.piece == Piece::P) {
+                0
+            } else {
+                self.half_move_clock + 1
+            };
+            if self.color == Color::B {
+                self.full_move_clock += 1;
             }
+            self.color = self.color.next();
+            self.castling.update(moving_figure);
         }
     }
 
-    fn castle(self, mv: &str) -> Game {
-        let mut figures: FigSet = self.figures.clone();
-        let mut position: OptFigures = self.position.clone();
-        let uci;
-
+    fn castle(&mut self, mv: &str) {
         // prepare indexes with
         let king_src: usize;
         let king_tgt: usize;
@@ -245,12 +231,12 @@ impl Game {
                 rook_src = 0;
                 king_tgt = 2;
                 rook_tgt = 3;
-                uci = "e8c8".to_string();
+                self.uci = "e8c8".to_string();
             } else {
                 rook_tgt = 5;
                 king_tgt = 6;
                 rook_src = 7;
-                uci = "e8g8".to_string();
+                self.uci = "e8g8".to_string();
             }
         } else {
             king_src = 60;
@@ -258,47 +244,39 @@ impl Game {
                 rook_src = 56;
                 king_tgt = 58;
                 rook_tgt = 59;
-                uci = "e1c1".to_string();
+                self.uci = "e1c1".to_string();
             } else {
                 rook_tgt = 61;
                 king_tgt = 62;
                 rook_src = 63;
-                uci = "e1g1".to_string();
+                self.uci = "e1g1".to_string();
             }
         }
 
         // get the according figures that will be involved.
-        let king = position[king_src].unwrap();
-        let rook = position[rook_src].unwrap();
+        let king = self.position[king_src].unwrap();
+        let rook = self.position[rook_src].unwrap();
         let new_king = king.move_to(&self.board[king_tgt]);
         let new_rook = rook.move_to(&self.board[rook_tgt]);
 
         // update figures by removing king and rook and putting them into their new positions.
-        figures.remove(&king);
-        figures.remove(&rook);
-        figures.insert(new_king);
-        figures.insert(new_rook);
+        self.figures.remove(&king);
+        self.figures.remove(&rook);
+        self.figures.insert(new_king);
+        self.figures.insert(new_rook);
 
         // update position by setting appropriate Figure Options.
-        position[king_src] = None;
-        position[rook_src] = None;
-        position[king_tgt] = Some(new_king);
-        position[rook_tgt] = Some(new_rook);
+        self.position[king_src] = None;
+        self.position[rook_src] = None;
+        self.position[king_tgt] = Some(new_king);
+        self.position[rook_tgt] = Some(new_rook);
 
-        Game {
-            board: self.board,
-            position,
-            figures,
-            color: self.color.next(),
-            castling: self.castling.castle(self.color),
-            en_passant: None,
-            half_move_clock: self.half_move_clock + 1,
-            full_move_clock: match self.color {
-                Color::W => self.full_move_clock,
-                Color::B => self.full_move_clock + 1,
-            },
-            uci,
+        self.castling.castle(self.color);
+        self.half_move_clock += 1;
+        if self.color == Color::B {
+            self.full_move_clock += 1;
         }
+        self.color = self.color.next();
     }
 
     fn find_king(self, color: Color) -> Figure {
@@ -994,17 +972,17 @@ fn check_mover_detection_with_hit_from_queen() {
 
 #[test]
 fn check_castling() {
-    let game = Game::from_str("4k2r/8/8/8/8/8/8/R3K3 w Qk - 0 1").unwrap();
+    let mut game = Game::from_str("4k2r/8/8/8/8/8/8/R3K3 w Qk - 0 1").unwrap();
 
-    let g1 = game.play_move("O-O-O");
-    let g2 = g1.play_move("O-O");
+    game.play_move("O-O-O");
+    game.play_move("O-O");
 
     assert_eq!(
-        g2.figures,
+        game.figures,
         HashSet::from_iter(["Kc1", "Rd1", "rf8", "kg8"].map(Figure::from))
     );
 
-    assert_eq!(g2.uci, "e8g8".to_string());
+    assert_eq!(game.uci, "e8g8".to_string());
 }
 
 #[test]
@@ -1121,7 +1099,7 @@ fn check_playing_games_pt1() {
     ];
 
     for mv in mvs {
-        game = game.play_move(mv);
+        game.play_move(mv);
     }
 
     assert_eq!(game.uci, "c7b6".to_string());
@@ -1155,7 +1133,7 @@ fn check_playing_games_pt2() {
     ];
 
     for mv in mvs {
-        game = game.play_move(mv);
+        game.play_move(mv);
     }
 
     assert_eq!(game.uci, "g6h6".to_string());
@@ -1183,7 +1161,7 @@ fn check_playing_games_pt3() {
     ];
 
     for mv in mvs {
-        game = game.play_move(mv);
+        game.play_move(mv);
     }
 
     assert_eq!(game.uci, "c1c6".to_string());
@@ -1209,7 +1187,7 @@ fn check_playing_games_pt4() {
     ];
 
     for mv in mvs {
-        game = game.play_move(mv);
+        game.play_move(mv);
     }
 
     assert_eq!(game.uci, "b3b2".to_string());
@@ -1233,7 +1211,7 @@ fn check_playing_games_pt5() {
     ];
 
     for mv in mvs {
-        game = game.play_move(mv);
+        game.play_move(mv);
     }
 
     assert_eq!(game.uci, "c1c2".to_string());
@@ -1256,7 +1234,7 @@ fn check_playing_games_pt6() {
     ];
 
     for mv in mvs {
-        game = game.play_move(mv);
+        game.play_move(mv);
     }
 
     assert_eq!(
@@ -1278,7 +1256,7 @@ fn check_playing_games_pt7() {
     ];
 
     for mv in mvs {
-        game = game.play_move(mv);
+        game.play_move(mv);
     }
 
     assert_eq!(
@@ -1298,7 +1276,7 @@ fn check_playing_games_pt8() {
     ];
 
     for mv in mvs {
-        game = game.play_move(mv);
+        game.play_move(mv);
     }
 
     assert_eq!(
@@ -1322,7 +1300,7 @@ fn check_playing_games_pt9() {
     ];
 
     for mv in mvs {
-        game = game.play_move(mv);
+        game.play_move(mv);
     }
 
     assert_eq!(
@@ -1345,7 +1323,7 @@ fn check_playing_games_pt10() {
     ];
 
     for mv in mvs {
-        game = game.play_move(mv);
+        game.play_move(mv);
     }
 
     assert_eq!(

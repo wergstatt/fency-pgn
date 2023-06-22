@@ -21,49 +21,41 @@ impl Castling {
         }
     }
 
-    pub fn castle(self, color: Color) -> Self {
+    pub fn castle(&mut self, color: Color) {
         match color {
-            Color::W => Castling {
-                white_kingside: false,
-                white_queenside: false,
-                black_kingside: self.black_kingside,
-                black_queenside: self.black_queenside,
+            Color::W => {
+                self.white_kingside = false;
+                self.white_queenside = false;
             },
-            Color::B => Castling {
-                white_kingside: self.white_kingside,
-                white_queenside: self.white_queenside,
-                black_kingside: false,
-                black_queenside: false,
+            Color::B => {
+                self.black_kingside = false;
+                self.black_queenside = false;
             },
         }
     }
 
-    pub fn update(self, figure: Figure) -> Self {
-        let mut castling = self;
-
+    pub fn update(&mut self, figure: Figure) {
         if figure.piece == Piece::R {
             if figure.color == Color::W {
                 if figure.coord.idx == 56 {
-                    castling.white_queenside = false;
+                    self.white_queenside = false;
                 } else if figure.coord.idx == 63 {
-                    castling.white_kingside = false;
+                    self.white_kingside = false;
                 }
             } else if figure.coord.idx == 0 {
-                castling.black_queenside = false;
+                self.black_queenside = false;
             } else if figure.coord.idx == 7 {
-                castling.black_kingside = false;
+                self.black_kingside = false;
             }
         } else if figure.piece == Piece::K {
             if figure.color == Color::W {
-                castling.white_queenside = false;
-                castling.white_kingside = false;
+                self.white_queenside = false;
+                self.white_kingside = false;
             } else {
-                castling.black_queenside = false;
-                castling.black_kingside = false;
+                self.black_queenside = false;
+                self.black_kingside = false;
             }
         }
-
-        castling
     }
 }
 
