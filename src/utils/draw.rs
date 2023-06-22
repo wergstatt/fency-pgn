@@ -46,9 +46,15 @@ impl FromStr for Draw {
                 None => Piece::P,
                 Some(&p) => Piece::from(p.chars().next().unwrap()),
             },
-            promoted_piece: capture_map.get("PromotesTo").map(|&c| Piece::from(c.chars().next().unwrap())),
-            remainder_file: capture_map.get("RemainderFile").map(|&c| c.chars().next().unwrap()),
-            remainder_rank: capture_map.get("RemainderRank").map(|&c| c.chars().next().unwrap()),
+            promoted_piece: capture_map
+                .get("PromotesTo")
+                .map(|&c| Piece::from(c.chars().next().unwrap())),
+            remainder_file: capture_map
+                .get("RemainderFile")
+                .map(|&c| c.chars().next().unwrap()),
+            remainder_rank: capture_map
+                .get("RemainderRank")
+                .map(|&c| c.chars().next().unwrap()),
         })
     }
 

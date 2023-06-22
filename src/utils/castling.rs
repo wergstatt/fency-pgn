@@ -26,11 +26,11 @@ impl Castling {
             Color::W => {
                 self.white_kingside = false;
                 self.white_queenside = false;
-            },
+            }
             Color::B => {
                 self.black_kingside = false;
                 self.black_queenside = false;
-            },
+            }
         }
     }
 

@@ -64,10 +64,7 @@ impl Game {
             let fig = Figure::from(fstr);
             position[fig.coord.idx as usize] = Some(fig);
         }
-        let figures = position
-                .iter()
-                .filter_map(|fig| *fig)
-                .collect();
+        let figures = position.iter().filter_map(|fig| *fig).collect();
 
         Game {
             board: get_board(),
@@ -123,97 +120,98 @@ impl Game {
     pub fn play_move(&mut self, mv: &str) {
         // Separate between castling and a "normal draw" where only one piece is moved.
         if mv.contains("O-O") {
-            self.castle(mv)
-        } else {
-            // derive the draw from SAN and identify the moving figure.
-            // TODO: Figure out what to do if 'mv' is an invalid string instead of just unwrapping
-            let draw = Draw::from_str(mv).unwrap();
-            let moving_figure = filter_mover(&draw, self);
-
-            // update figures & position
-            self.position[moving_figure.coord.idx as usize] = None;
-            self.figures.remove(&moving_figure);
-            if draw.is_hit {
-                if self.en_passant.is_some()
-                    && (moving_figure.piece == Piece::P)
-                    && (draw.target == self.en_passant.unwrap())
-                {
-                    let ep_figure = *self.figures
-                        .iter()
-                        .find(|f| {
-                            (f.color == self.color.next())
-                                && (f.coord.x == draw.target.x)
-                                && (f.coord.y == draw.target.y + self.color.next().factor())
-                        })
-                        .unwrap();
-
-                    self.position[ep_figure.coord.idx as usize] = None;
-                    self.figures.remove(&ep_figure);
-                } else {
-                    let hit_figure = *self.figures
-                        .iter()
-                        .find(|f| f.coord == draw.target)
-                        .unwrap();
-
-                    self.position[hit_figure.coord.idx as usize] = None;
-                    self.figures.remove(&hit_figure);
-                }
-            }
-            if draw.is_promo {
-                let promoted_figure = Figure {
-                    color: self.color,
-                    coord: draw.target,
-                    piece: draw.promoted_piece.unwrap(),
-                };
-                self.position[promoted_figure.coord.idx as usize] = Some(promoted_figure);
-                self.figures.insert(promoted_figure);
-            } else {
-                let moved_figure = moving_figure.move_to(&draw.target);
-                self.position[moved_figure.coord.idx as usize] = Some(moved_figure);
-                self.figures.insert(moved_figure);
-            }
-
-            // Account for En-Passant
-            self.en_passant = None;
-            if (moving_figure.piece == Piece::P)
-                && ((moving_figure.coord.y - draw.target.y).abs() == 2)
-            {
-                let ep_idx = (draw.target.idx + self.color.factor() * 8) as usize;
-                let ep_coord = self.board[ep_idx];
-                let mut ep_candidates = self.figures.iter().filter(|f| {
-                    f.color == self.color.next()
-                        && (f.piece == Piece::P)
-                        && (f.coord.y == draw.target.y)
-                        && ((f.coord.x - draw.target.x).abs() == 1)
-                });
-
-                if ep_candidates.next().is_some() {
-                    self.en_passant = Some(ep_coord);
-                }
-            }
-
-            // Design UCI representation of a move.
-            let mut uci: String = "".to_string();
-            uci.push_str(&moving_figure.coord.to_string()[..]);
-            uci.push_str(&draw.target.to_string()[..]);
-            if draw.is_promo {
-                // uci is always lowercase, thus use lowercase char induced by black.
-                uci.push(draw.promoted_piece.unwrap().to_char(Color::B));
-            }
-
-            // Update game
-            self.uci = uci;
-            self.half_move_clock = if draw.is_hit || (draw.piece == Piece::P) {
-                0
-            } else {
-                self.half_move_clock + 1
-            };
-            if self.color == Color::B {
-                self.full_move_clock += 1;
-            }
-            self.color = self.color.next();
-            self.castling.update(moving_figure);
+            self.castle(mv);
+            return;
         }
+        // derive the draw from SAN and identify the moving figure.
+        // TODO: Figure out what to do if 'mv' is an invalid string instead of just unwrapping
+        let draw = Draw::from_str(mv).unwrap();
+        let moving_figure = filter_mover(&draw, self);
+
+        // update figures & position
+        self.position[moving_figure.coord.idx as usize] = None;
+        self.figures.remove(&moving_figure);
+        if draw.is_hit {
+            if self.en_passant.is_some()
+                && (moving_figure.piece == Piece::P)
+                && (draw.target == self.en_passant.unwrap())
+            {
+                let ep_figure = *self
+                    .figures
+                    .iter()
+                    .find(|f| {
+                        (f.color == self.color.next())
+                            && (f.coord.x == draw.target.x)
+                            && (f.coord.y == draw.target.y + self.color.next().factor())
+                    })
+                    .unwrap();
+
+                self.position[ep_figure.coord.idx as usize] = None;
+                self.figures.remove(&ep_figure);
+            } else {
+                let hit_figure = *self
+                    .figures
+                    .iter()
+                    .find(|f| f.coord == draw.target)
+                    .unwrap();
+
+                self.position[hit_figure.coord.idx as usize] = None;
+                self.figures.remove(&hit_figure);
+            }
+        }
+        if draw.is_promo {
+            let promoted_figure = Figure {
+                color: self.color,
+                coord: draw.target,
+                piece: draw.promoted_piece.unwrap(),
+            };
+            self.position[promoted_figure.coord.idx as usize] = Some(promoted_figure);
+            self.figures.insert(promoted_figure);
+        } else {
+            let moved_figure = moving_figure.move_to(&draw.target);
+            self.position[moved_figure.coord.idx as usize] = Some(moved_figure);
+            self.figures.insert(moved_figure);
+        }
+
+        // Account for En-Passant
+        self.en_passant = None;
+        if (moving_figure.piece == Piece::P) && ((moving_figure.coord.y - draw.target.y).abs() == 2)
+        {
+            let ep_idx = (draw.target.idx + self.color.factor() * 8) as usize;
+            let ep_coord = self.board[ep_idx];
+            let mut ep_candidates = self.figures.iter().filter(|f| {
+                f.color == self.color.next()
+                    && (f.piece == Piece::P)
+                    && (f.coord.y == draw.target.y)
+                    && ((f.coord.x - draw.target.x).abs() == 1)
+            });
+
+            if ep_candidates.next().is_some() {
+                self.en_passant = Some(ep_coord);
+            }
+        }
+
+        // Design UCI representation of a move.
+        let mut uci: String = "".to_string();
+        uci.push_str(&moving_figure.coord.to_string()[..]);
+        uci.push_str(&draw.target.to_string()[..]);
+        if draw.is_promo {
+            // uci is always lowercase, thus use lowercase char induced by black.
+            uci.push(draw.promoted_piece.unwrap().to_char(Color::B));
+        }
+
+        // Update game
+        self.uci = uci;
+        self.half_move_clock = if draw.is_hit || (draw.piece == Piece::P) {
+            0
+        } else {
+            self.half_move_clock + 1
+        };
+        if self.color == Color::B {
+            self.full_move_clock += 1;
+        }
+        self.color = self.color.next();
+        self.castling.update(moving_figure);
     }
 
     fn castle(&mut self, mv: &str) {
@@ -279,7 +277,8 @@ impl Game {
     }
 
     fn find_king(&self, color: Color) -> Figure {
-        *self.figures
+        *self
+            .figures
             .iter()
             .find(|f| (f.piece == Piece::K) & (f.color == color))
             .unwrap()
@@ -314,7 +313,10 @@ impl FromStr for Game {
         let fen_parts: Vec<&str> = fen.split(' ').collect();
 
         // Sort string information into the according variables.
-        let position_str: Fen = fen_parts.first().ok_or(String::from("no position string"))?.to_string();
+        let position_str: Fen = fen_parts
+            .first()
+            .ok_or(String::from("no position string"))?
+            .to_string();
         let color_str = fen_parts[1];
         let castling_str = fen_parts[2];
         let ep_str = fen_parts[3];
@@ -355,7 +357,6 @@ impl FromStr for Game {
     }
 
     type Err = String;
-
 }
 
 //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -498,8 +499,7 @@ fn filter_on_pins(figures: FigSet, draw: &Draw, game: &Game) -> Figure {
     let mut base_game = game.clone();
 
     if draw.is_hit {
-        base_game
-            .remove_figure(&game.position[draw.target.idx as usize].unwrap());
+        base_game.remove_figure(&game.position[draw.target.idx as usize].unwrap());
     }
 
     let mut figs: Figures = Vec::new();
@@ -563,9 +563,7 @@ fn get_pawn_hits(fig: &Figure, game: &Game) -> CoordIdx {
             if game.position[ti as usize].unwrap().color != fig.color {
                 coordix.push(ti);
             }
-        } else if valid_idx(ti)
-            && game.en_passant.is_some()
-            && (game.en_passant.unwrap().idx == ti)
+        } else if valid_idx(ti) && game.en_passant.is_some() && (game.en_passant.unwrap().idx == ti)
         {
             coordix.push(ti);
         }
@@ -605,7 +603,11 @@ fn get_knight_moves(fig: &Figure, game: &Game) -> CoordIdx {
     // loop over possible jump locations and check if those feasible.
     for i in [-17, -15, -10, -6, 6, 10, 15, 17] {
         let ti: i8 = ci + i;
-        if valid_idx(ti) && ((fig.coord.x - game.board[ti as usize].x).abs() < 3) && (game.position[ti as usize].is_none() || game.position[ti as usize].unwrap().color != fig.color) {
+        if valid_idx(ti)
+            && ((fig.coord.x - game.board[ti as usize].x).abs() < 3)
+            && (game.position[ti as usize].is_none()
+                || game.position[ti as usize].unwrap().color != fig.color)
+        {
             coordix.push(ti);
         }
     }
@@ -716,10 +718,7 @@ fn get_king_moves(fig: &Figure, game: &Game) -> CoordIdx {
 //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #[allow(dead_code)]
 fn coords_from_san(coords: Vec<&str>) -> Coords {
-    coords
-        .into_iter()
-        .map(Coord::from)
-        .collect::<Coords>()
+    coords.into_iter().map(Coord::from).collect::<Coords>()
 }
 
 #[test]
@@ -950,9 +949,8 @@ fn check_castling() {
 
 #[test]
 fn check_fen_map() {
-    let game = Game::from_str(
-        "rnbqk2r/pppp1ppp/3b1n2/8/1PPPp3/P1N1P3/5PPP/R1BQKBNR b KQkq d3 0 6",
-    ).unwrap();
+    let game = Game::from_str("rnbqk2r/pppp1ppp/3b1n2/8/1PPPp3/P1N1P3/5PPP/R1BQKBNR b KQkq d3 0 6")
+        .unwrap();
 
     let fen_map = game.to_fen_map();
 
