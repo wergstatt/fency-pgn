@@ -150,9 +150,8 @@ impl Game {
                     self.position[ep_figure.coord.idx as usize] = None;
                     self.figures.remove(&ep_figure);
                 } else {
-                    let hit_figure = self.figures
-                        .clone()
-                        .into_iter()
+                    let hit_figure = *self.figures
+                        .iter()
                         .find(|f| f.coord == draw.target)
                         .unwrap();
 
@@ -181,7 +180,7 @@ impl Game {
             {
                 let ep_idx = (draw.target.idx + self.color.factor() * 8) as usize;
                 let ep_coord = self.board[ep_idx];
-                let mut ep_candidates = self.figures.clone().into_iter().filter(|f| {
+                let mut ep_candidates = self.figures.iter().filter(|f| {
                     f.color == self.color.next()
                         && (f.piece == Piece::P)
                         && (f.coord.y == draw.target.y)
@@ -279,58 +278,25 @@ impl Game {
         self.color = self.color.next();
     }
 
-    fn find_king(self, color: Color) -> Figure {
-        self.figures
-            .into_iter()
+    fn find_king(&self, color: Color) -> Figure {
+        *self.figures
+            .iter()
             .find(|f| (f.piece == Piece::K) & (f.color == color))
             .unwrap()
     }
 
-    fn remove_figure(self, figure: &Figure) -> Self {
-        // clone objects that need to be modified
-        let mut new_figures = self.figures.clone();
-        let mut new_position = self.position.clone();
-
-        // remove the figure
-        new_figures.remove(figure);
-        new_position[figure.coord.idx as usize] = None;
-
-        Game {
-            board: self.board,
-            position: new_position,
-            figures: new_figures,
-            color: self.color,
-            castling: self.castling,
-            en_passant: self.en_passant,
-            half_move_clock: self.half_move_clock,
-            full_move_clock: self.full_move_clock,
-            uci: self.uci,
-        }
+    fn remove_figure(&mut self, figure: &Figure) {
+        self.figures.remove(figure);
+        self.position[figure.coord.idx as usize] = None;
     }
 
-    fn move_figure(self, figure: &Figure, target: &Coord) -> Self {
-        // clone objects that need to be modified
-        let mut new_figures = self.figures.clone();
-        let mut new_position = self.position.clone();
-
+    fn move_figure(&mut self, figure: &Figure, target: &Coord) {
         // remove the figure
         let moved_figure = figure.move_to(target);
-        new_figures.insert(moved_figure);
-        new_figures.remove(figure);
-        new_position[target.idx as usize] = Some(moved_figure);
-        new_position[figure.coord.idx as usize] = None;
-
-        Game {
-            board: self.board,
-            position: new_position,
-            figures: new_figures,
-            color: self.color,
-            castling: self.castling,
-            en_passant: self.en_passant,
-            half_move_clock: self.half_move_clock,
-            full_move_clock: self.full_move_clock,
-            uci: self.uci,
-        }
+        self.figures.insert(moved_figure);
+        self.figures.remove(figure);
+        self.position[target.idx as usize] = Some(moved_figure);
+        self.position[figure.coord.idx as usize] = None;
     }
 }
 
@@ -358,8 +324,7 @@ impl FromStr for Game {
         // Derive fields from Strings.
         let position: OptFigures = fen_to_position(&position_str, &board);
         let figures: FigSet = position
-            .clone()
-            .into_iter()
+            .iter()
             .filter(|f| !f.is_none())
             .map(|f| f.unwrap())
             .collect();
@@ -465,8 +430,8 @@ fn position_to_fen(position: OptFigures) -> Fen {
 fn filter_mover(draw: &Draw, game: &Game) -> Figure {
     let figs: FigSet = game
         .figures
-        .clone()
-        .into_iter()
+        .iter()
+        .cloned()
         .filter(|f| (f.color == game.color) & (f.piece == draw.piece))
         .collect();
     if figs.len() == 1 {
@@ -529,24 +494,22 @@ fn filter_on_moves(figures: FigSet, draw: &Draw, game: &Game) -> Figure {
 
 fn filter_on_pins(figures: FigSet, draw: &Draw, game: &Game) -> Figure {
     // store the kings coordinate of the current moving party.
-    let king_coord = game.clone().find_king(game.color).coord;
+    let king_coord = game.find_king(game.color).coord;
+    let mut base_game = game.clone();
 
-    // prepare the game to analyze accordingly if the move is a hit.
-    let base_game: Game = if draw.is_hit {
-        game.clone()
-            .remove_figure(&game.position[draw.target.idx as usize].unwrap())
-    } else {
-        game.clone()
-    };
+    if draw.is_hit {
+        base_game
+            .remove_figure(&game.position[draw.target.idx as usize].unwrap());
+    }
 
     let mut figs: Figures = Vec::new();
     for fig in figures {
-        let alt_game = base_game.clone().move_figure(&fig, &draw.target);
+        let mut alt_game = base_game.clone();
+        alt_game.move_figure(&fig, &draw.target);
 
         let n_checkers = alt_game
-            .clone()
             .figures
-            .into_iter()
+            .iter()
             .filter(|f| {
                 (f.color != game.color)
                     && ([Piece::R, Piece::B, Piece::Q].contains(&f.piece))
@@ -913,7 +876,7 @@ fn check_fen_conversion_pt0() {
 #[test]
 fn check_king_extraction() {
     let game = Game::new();
-    assert_eq!(game.clone().find_king(Color::W), Figure::from("Ke1"));
+    assert_eq!(game.find_king(Color::W), Figure::from("Ke1"));
     assert_eq!(game.find_king(Color::B), Figure::from("ke8"));
 }
 
