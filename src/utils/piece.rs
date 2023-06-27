@@ -31,7 +31,7 @@ impl From<char> for Piece {
 }
 
 impl Piece {
-    pub fn to_char(&self, color: Color) -> char {
+    pub fn to_char(self, color: Color) -> char {
         if color == Color::W {
             match self {
                 Piece::R => 'R',

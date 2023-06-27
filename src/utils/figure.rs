@@ -18,7 +18,7 @@ impl Figure {
     pub fn move_to(self, coord: &Coord) -> Self {
         Figure {
             color: self.color,
-            coord: coord.clone(),
+            coord: *coord,
             piece: self.piece,
         }
     }
@@ -28,16 +28,16 @@ impl From<&str> for Figure {
     /// Derive a figure from some minimal information about piece and coord, plus the color encoded
     /// in whether the piece is upper- or lowercase, e.g. Nc1 vs ng8.
     fn from(figstr: &str) -> Self {
-        let pchar = figstr.clone().chars().next().unwrap();
+        let pchar = figstr.chars().next().unwrap();
 
-        return Figure {
+        Figure {
             color: match pchar.is_uppercase() {
                 true => Color::W,
                 false => Color::B,
             },
             coord: Coord::from(&figstr[1..3]),
             piece: Piece::from(pchar),
-        };
+        }
     }
 }
 

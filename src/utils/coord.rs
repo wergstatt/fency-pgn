@@ -14,12 +14,6 @@ pub struct Coord {
     pub main_diagonal: i8,
 }
 
-impl Coord {
-    fn to_string(self) -> String {
-        format!("{}{}", self.file, self.rank)
-    }
-}
-
 // Traits
 pub trait FromIndex {
     fn from_idx(idx: i8) -> Self;
@@ -38,7 +32,7 @@ impl From<&str> for Coord {
         assert_eq!(field.len(), 2);
 
         // if there are at least two characters, assign those as file and rank.
-        let file = field.chars().nth(0).unwrap();
+        let file = field.chars().next().unwrap();
         let rank = field.chars().nth(1).unwrap();
 
         // derive coordinate system and vector representation of coordinate.
@@ -142,19 +136,19 @@ fn check_identity() {
 #[test]
 #[should_panic]
 fn check_illegal_coords_pt1() {
-    Coord::from("a9").idx;
+    let _ = Coord::from("a9");
 }
 
 #[test]
 #[should_panic]
 fn check_illegal_coords_pt2() {
-    Coord::from("i1").idx;
+    let _ = Coord::from("i1");
 }
 
 #[test]
 #[should_panic]
 fn check_illegal_coords_pt3() {
-    Coord::from("1a").idx;
+    let _ = Coord::from("1a");
 }
 
 #[test]
