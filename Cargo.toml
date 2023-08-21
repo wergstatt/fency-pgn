@@ -1,6 +1,6 @@
 [package]
 name = "fency-pgn"
-version = "0.1.5"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 homepage = "https://github.com/jawerg/fency-pgn"
@@ -10,3 +10,12 @@ description = "A converter from Standard Algebraic Notation (SAN) moves to the r
 
 [dependencies]
 regex = "1.5.4"
+
+
+[lib]
+name = "fency_pgn"
+crate-type = ["cdylib"]
+
+[dependencies.pyo3]
+version = "0.19.2"
+features = ["abi3-py311"]
